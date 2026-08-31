@@ -10,6 +10,11 @@ public class TodoService(TodoRepository repository, EventBus eventBus)
    
     public async Task<Todo> Create(string title)
     {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new ArgumentException("Title kan inte vara tom.", nameof(title));
+        }
+
         var allTodos = repository.GetAll();
         var nextId = allTodos.Count > 0 ? allTodos.Max(t => t.Id) + 1 : 1;
         var todo = new Todo
