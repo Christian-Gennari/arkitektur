@@ -8,6 +8,6 @@ public class TodoCreatedHandler(IActivityLogger logger) : IEventHandler<TodoCrea
 {
     public async Task Handle(TodoCreated @event)
     {
-        await logger.LogAsync("CREATE", $"Todo {@event.Todo.Id} skapad: {@event.Todo.Title}");
+        await logger.LogAsync("SKAPAD", $"Todo skapad: {@event.Todo.Id} - {@event.Todo.Title}");
     }
 }

@@ -7,6 +7,6 @@ public class TodoDeletedHandler(IActivityLogger logger) : IEventHandler<TodoDele
 {
     public async Task Handle(TodoDeleted @event)
     {
-        await logger.LogAsync("DELETE", $"Todo {@event.Todo.Id} raderad: {@event.Todo.Title}");
+        await logger.LogAsync("RADERAD", $"Todo raderad: {@event.Todo.Id} - {@event.Todo.Title}");
     }
 }

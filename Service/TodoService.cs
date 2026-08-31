@@ -36,7 +36,7 @@ public class TodoService(TodoRepository repository, EventBus eventBus)
         return repository.GetAll();
     }
 
-    public bool Complete(int id)
+    public async Task<bool> Complete(int id)
     {
         var todo = repository.GetById(id);
         if (todo == null)
@@ -45,10 +45,11 @@ public class TodoService(TodoRepository repository, EventBus eventBus)
         }
         todo.IsCompleted = true;
         repository.Update(todo);
+        await eventBus.Publish(new TodoUpdated(todo));
         return true;
     }
 
-    public bool Delete(int id)
+    public async Task<bool> Delete(int id)
     {
         var todo = repository.GetById(id);
         if (todo == null)
@@ -56,6 +57,7 @@ public class TodoService(TodoRepository repository, EventBus eventBus)
             return false;
         }
         repository.Delete(todo);
+        await eventBus.Publish(new TodoDeleted(todo));
         return true;
     }
 }
