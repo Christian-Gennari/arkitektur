@@ -30,6 +30,16 @@ bus.Subscribe<TodoUpdated>(todoUpdatedHandler);
 bus.Subscribe<TodoDeleted>(todoDeletedHandler);
 
 
+app.MapGet("/todos", (TodoService service) =>
+{
+    return Results.Ok(service.GetAll());
+});
+
+app.MapGet("/todos/{id:int}", (int id, TodoService service) =>
+{
+    var todo = service.GetById(id);
+    return todo is not null ? Results.Ok(todo) : Results.NotFound();
+});
 
 app.MapPost(
     "/todos",
@@ -39,5 +49,27 @@ app.MapPost(
         return Results.Created($"/todos/{created.Id}", created);
     }
 );
+
+app.MapPut("/todos/{id:int}/complete", async (int id, TodoService service) =>
+{
+    var success = await service.Complete(id);
+    return success ? Results.Ok($"Todo {id} markerades som klar!") : Results.NotFound();
+});
+
+app.MapDelete("/todos/{id:int}", async (int id, TodoService service) =>
+{
+    var success = await service.Delete(id);
+    return success ? Results.NoContent() : Results.NotFound();
+});
+
+app.MapGet("/statistics", (IStatisticsService statistics) =>
+{
+    return Results.Ok(new
+    {
+        statistics.CreatedCount,
+        statistics.CompletedCount,
+        statistics.DeletedCount
+    });
+});
 
 app.Run();
