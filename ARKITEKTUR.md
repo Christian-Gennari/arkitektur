@@ -1,206 +1,177 @@
 # Event-driven Architecture
 
-## Vilket problem försöker arkitekturen lösa?
+## Vad visar projektet?
 
-Event-driven Architecture försöker minska den direkta kopplingen mellan olika delar av ett program.
+Projektet är en todo-app som använder en lokal, asynkron Event-driven Architecture
+(EDA) för sidoeffekter. Användarens commands och queries går via HTTP, men efter en
+domänförändring publicerar applikationen ett event till en kö. Oberoende consumers
+uppdaterar sedan statistik och aktivitetslogg utan att `TodoService` anropar dem direkt.
 
-I stället för att en komponent måste känna till och anropa alla andra komponenter direkt publicerar den en händelse när något har hänt. Andra komponenter kan sedan prenumerera på händelsen och reagera på den självständigt.
+Det är därför en **hybridarkitektur**:
 
-Exempelvis kan en komponent publicera `OrderCreated`. Då kan lagerhantering minska lagersaldot, en notifiering skicka ett mejl och statistik uppdateras – utan att orderkomponenten behöver känna till detaljerna i dessa funktioner.
+- HTTP request/response används mellan webbläsaren och API:et.
+- Asynkrona events används för interna reaktioner på förändringar.
+- Kön och alla consumers kör i samma process.
 
-I vår todo-app är problemet mindre, men principen är densamma. När en todo skapas, uppdateras eller raderas behöver flera saker hända runt förändringen:
+Lösningen visar EDA-principer och eventual consistency, men är inte ett distribuerat
+produktionssystem. Den använder ingen extern broker som RabbitMQ eller Kafka.
 
-- statistik ska uppdateras,
-- aktiviteten ska loggas,
-- fler funktioner skulle kunna reagera i framtiden.
+## Vilket problem löser arkitekturen?
 
-`TodoService` publicerar därför en händelse och behöver inte själv anropa loggning och statistik direkt.
+När en todo skapas, uppdateras eller raderas behöver flera oberoende saker reagera:
 
-## Vilka är de huvudsakliga komponenterna i denna arkitektur?
+- aktivitetsstatistik ska uppdateras;
+- en loggrad ska skrivas;
+- framtida funktioner, exempelvis notifieringar, kan vilja reagera på samma händelse.
 
-De eventdrivna delarna i vår lösning är:
+Utan events måste `TodoService` känna till och anropa alla dessa funktioner. Med
+publish/subscribe behöver servicen bara meddela vad som redan har hänt. Producenten
+behöver inte känna till antalet consumers, deras implementation eller hur lång tid de
+tar.
 
-- **Event producer** – komponenten som publicerar en händelse. Här är det `TodoService`.
-- **Events** – objekt som beskriver vad som har hänt, till exempel `TodoCreated`, `TodoUpdated` och `TodoDeleted`.
-- **EventBus** – tar emot publicerade händelser och skickar dem till rätt prenumeranter.
-- **Event handlers/subscribers** – komponenter som reagerar på en viss händelse.
-- **Sidoeffekter** – det som handlers utför, till exempel loggning och statistik.
-- **Repository och datamodell** – sparar själva todo-datan. De är inte eventdrivna i sig, men producerar underlaget till händelserna.
-- **API och frontend** – startar användarens operationer och visar resultatet, men de kommunicerar huvudsakligen genom HTTP i den här versionen.
+## Översikt
 
-## Vilket ansvar har varje komponent?
+```mermaid
+flowchart LR
+    Browser[Webbläsare] -->|HTTP command| API[Todo API]
+    API --> Service[TodoService]
+    Service --> Repository[(Todo repository)]
+    Service -->|TodoCreated / Updated / Deleted| Queue[Bounded .NET Channel]
+    Queue --> Dispatcher[EventBus BackgroundService]
+    Dispatcher --> Statistics[Statistics consumer]
+    Dispatcher --> Activity[Activity log consumer]
+    Dispatcher --> Monitor[Event Monitor]
+    Monitor -->|Server-Sent Events| Browser
+```
 
-### Event producer: TodoService
+### Producent
 
-`TodoService` utför själva operationen och publicerar sedan en händelse:
+`TodoService` utför domänoperationen och publicerar därefter ett event. Exempel:
 
 ```csharp
 repository.Add(todo);
-await eventPublisher.Publish(new TodoCreated(todo));
+await eventPublisher.Publish(new TodoCreated(todo.Id, todo.Title));
 ```
 
-Servicen behöver inte veta vilka handlers som finns. Den säger bara: ”en todo har skapats”.
+`Publish` väntar bara tills eventet har accepterats av kön. Den väntar inte på att
+statistik eller loggning ska slutföras.
 
 ### Events
 
-Events är meddelanden om något som redan har hänt. I vår kod är de records:
+`TodoCreated`, `TodoUpdated` och `TodoDeleted` är oföränderliga snapshots. De innehåller
+bara information som var sann när händelsen inträffade, inte en muterbar referens till
+domänobjektet. Alla events har även:
 
-```csharp
-public record TodoCreated(Todo Todo) : IEvent;
-public record TodoUpdated(Todo Todo) : IEvent;
-public record TodoDeleted(Todo Todo) : IEvent;
-```
+- `EventId` för att identifiera det enskilda eventet;
+- `OccurredAt` för när domänhändelsen skapades;
+- `CorrelationId` för att koppla eventet till den inkommande operationen.
 
-Eventet innehåller information som subscribers kan behöva, exempelvis todo:ns ID, titel och status.
+Namnen beskriver något som redan har hänt. De är events, inte instruktioner som
+`CreateTodo` eller `WriteLog`.
 
-### EventBus
+### Eventkö och dispatcher
 
-`EventBus` fungerar som ett nav mellan producer och subscribers. När `Publish` anropas letar den upp alla handlers som prenumererar på eventets typ och anropar dem.
+`EventBus` har två roller i den lokala demonstrationen:
 
-Det gör att `TodoService` inte behöver ha direkta beroenden till `TodoCreatedHandler`, `FileActivityLogger` eller `StatisticsService`.
+1. Den tar emot events och skriver dem till en begränsad `.NET Channel`.
+2. Som `BackgroundService` läser den kön och distribuerar events till subscribers.
 
-### Event handlers
+Kön har kapacitet för 100 events och använder backpressure: om kön blir full väntar
+producenten på ledig plats. En enda reader behandlar events i FIFO-ordning. Consumers
+för samma event startas oberoende och inväntas tillsammans innan nästa event tas.
 
-Varje handler reagerar på en viss typ av händelse och har ett begränsat ansvar:
+### Consumers
 
-- `TodoCreatedHandler` uppdaterar skapandestatistiken och loggar den nya todo:n.
-- `TodoUpdatedHandler` uppdaterar slutförandestatistiken och loggar när todo:n slutförs eller öppnas igen.
-- `TodoDeletedHandler` uppdaterar raderingsstatistiken och loggar den raderade todo:n.
+Det finns två logiska consumers som prenumererar på alla tre eventtyper:
 
-Om vi senare vill skicka en notis när en todo skapas kan vi lägga till en ny handler utan att ändra `TodoService`.
+- `StatisticsEventHandler` uppdaterar räknarna.
+- `ActivityLogEventHandler` skriver till `log.txt`.
 
-### Sidoeffekter
+De känner inte till varandra. Om en consumer kastar ett exception loggas felet och
+markeras i Event Monitor, medan övriga consumers får fortsätta.
 
-Handlers använder andra komponenter för att utföra sina sidoeffekter:
+### Event Monitor
 
-- `StatisticsService` håller statistikräknare.
-- `FileActivityLogger` skriver aktivitetsmeddelanden till `log.txt`.
+`EventMonitor` sparar de senaste 100 spårningsposterna i minnet. Endpointen
+`GET /events/stream` strömmar dem till webbläsaren med Server-Sent Events (SSE).
+Webbläsaren grupperar posterna efter event-ID och visar bland annat:
 
-Det är just dessa sidoeffekter som passar bra att koppla till events. TodoService behöver fokusera på todo-regeln, medan handlers tar hand om det som ska hända runt omkring.
+- `queued`;
+- `processing`;
+- `consumer-started`;
+- `consumer-completed` eller `consumer-failed`;
+- `completed` eller `completed-with-errors`.
 
-## Samspelar Event-driven Architecture extra bra med designmönster?
+SSE-flödet är observability för demon och inte själva eventkön. Consumers tar sina
+events från Channel, inte från webbläsarströmmen.
 
-Ja. Event-driven Architecture bygger ofta på eller kombineras med flera designmönster.
+## Dataflöde när en todo skapas
 
-### Observer pattern
+1. Webbläsaren skickar `POST /todos`.
+2. `TodoService` validerar och sparar todo:n i repositoryt.
+3. Servicen skapar ett oföränderligt `TodoCreated` och publicerar det.
+4. Eventet läggs i Channel och API:et kan svara `201 Created`.
+5. Webbläsaren kan redan visa todo:n, medan statistiken fortfarande är oförändrad.
+6. `EventBus` hämtar eventet efter den Development-konfigurerade demofördröjningen.
+7. Statistik- och loggconsumers behandlar eventet oberoende.
+8. Event Monitor visar varje steg via SSE.
+9. När eventet är färdigbehandlat hämtar frontend aktuell statistik.
 
-EventBus-lösningen liknar Observer pattern. En producer publicerar en förändring och flera observers, här event handlers, kan reagera på den.
+Steg 5 visar **eventual consistency**: todo-datan och statistiken kan under en kort tid
+visa olika versioner av systemets tillstånd.
 
-### Publish/subscribe
+## Varför finns en demofördröjning?
 
-Det är också ett publish/subscribe-upplägg:
+Asynkron bearbetning går vanligtvis så snabbt lokalt att köläget knappt syns. Därför är
+`EventProcessing:DemoDelayMilliseconds` satt till `1000` i
+`appsettings.Development.json`. Standardvärdet i `appsettings.json` är `0`.
+Fördröjningen är en visualiseringsteknik, inte ett krav i arkitekturen.
 
-```text
-TodoService publicerar TodoCreated
-              ↓
-          EventBus
-          ↙     ↘
-   Statistik   Loggning
-```
+## Fel, leverans och avgränsningar
 
-Producenten publicerar utan att behöva veta exakt vilka subscribers som finns.
+Lösningen gör medvetna förenklingar:
 
-### Domain events
+- **Icke-beständig kö:** events i Channel försvinner om processen avslutas.
+- **At-most-once i praktiken:** det finns inga automatiska retries.
+- **Ingen dead-letter queue:** misslyckade events visas och loggas men köas inte om.
+- **Ingen distribuerad skalning:** API, kö och consumers delar process och minne.
+- **Möjligt dual-write-glapp:** repositoryt kan uppdateras precis innan publicering
+  misslyckas. En produktionslösning skulle kunna använda Outbox Pattern.
+- **Minnesbaserad data:** todos, statistik och eventhistorik nollställs vid omstart.
 
-`TodoCreated`, `TodoUpdated` och `TodoDeleted` kan ses som domain events eftersom de beskriver förändringar i domänen: en todo har skapats, uppdaterats eller raderats.
+Det här är viktigt att säga öppet. En extern broker definierar inte ensam EDA, men den
+behövs ofta för beständighet, distribution och mer robust leverans.
 
-### Dependency Injection
+## Designmönster och principer
 
-Dependency Injection används för att koppla ihop `IEventPublisher` med `EventBus` och handlers med deras beroenden. Det gör dem enklare att byta ut och testa.
+- **Publish/subscribe:** en producent publicerar och flera subscribers reagerar.
+- **Observer:** registreringen av handlers liknar Observer pattern, men leveransen sker
+  asynkront genom en kö.
+- **Domain events:** eventnamnen beskriver relevanta förändringar i todo-domänen.
+- **Dependency Injection:** producenten beror på `IEventPublisher` och consumers på
+  små interfaces för sina sidoeffekter.
+- **Eventual consistency:** read models och sidoeffekter uppdateras efter huvudoperationen.
+- **Lös koppling:** en ny consumer kan registreras utan ändring i `TodoService`.
 
-### Viktig skillnad i vår implementation
+## Vägen till en distribuerad version
 
-Vår lösning använder event-driven principer, men det är inte en fullskalig distribuerad Event-driven Architecture. `EventBus` kör inne i samma applikation och händelserna skickas direkt i minnet.
+För en större produktionslösning kan Channel ersättas av RabbitMQ, Azure Service Bus
+eller Kafka och consumers flyttas till separata processer. Då behöver lösningen även:
 
-Vi har alltså ingen queue eller message broker i projektet. `EventBus` sparar inte events för senare, utan anropar handlers direkt när `Publish` körs. Om applikationen stängs av finns det inte heller några väntande events kvar att behandla.
+- beständig eventlagring och Outbox Pattern;
+- retry-policy och dead-letter queue;
+- idempotenta consumers som tål dubbletter;
+- kontraktsversionering för events;
+- autentisering och åtkomstkontroll;
+- metrics, distribuerad tracing och larm.
 
-I en större och distribuerad lösning skulle man kunna använda exempelvis RabbitMQ, Azure Service Bus eller Kafka. Då hade events kunnat skickas mellan separata applikationer och behandlas asynkront, men det är inte den lösning vi har byggt här.
-
-## Hur flödar data genom systemet?
-
-### När en todo skapas
-
-1. Användaren skriver en titel och klickar på plusknappen.
-2. Frontendens `app.js` skickar en `POST` till `/todos` genom `api.js`.
-3. API-endpointen i `Program.cs` tar emot requesten och anropar `TodoService.Create`.
-4. `TodoService` validerar titeln och skapar ett ID.
-5. Todo:n sparas i `InMemoryTodoRepository`.
-6. `TodoService` publicerar `TodoCreated` genom `EventBus`.
-7. `TodoCreatedHandler` tar emot eventet.
-8. Handlern ökar statistiken och ber `FileActivityLogger` skriva en loggrad.
-9. Eventhanteringen är klar och API:et returnerar `201 Created`.
-10. Frontendens `refresh()` hämtar todos och statistik igen.
-11. `app.js` renderar listan på nytt så att den nya todo:n syns på skärmen.
-
-### När en todo markeras som klar
-
-1. Användaren klickar på todo:ns checkbox.
-2. `app.js` avgör om todo:n ska slutföras eller öppnas igen.
-3. Frontend skickar `PUT /todos/{id}/complete` eller `PUT /todos/{id}/uncomplete`.
-4. `TodoService` ändrar `IsCompleted` och sparar ändringen i repositoryt.
-5. Servicen publicerar `TodoUpdated`.
-6. `TodoUpdatedHandler` reagerar på eventet.
-7. Handlern uppdaterar statistik och loggar antingen `TODO_COMPLETED` eller `TODO_REOPENED`.
-8. API:et svarar frontend.
-9. Frontend hämtar aktuell data på nytt och visar checkboxen som klar eller öppen.
-
-### Vad är synkront i vår lösning?
-
-I vår implementation väntar `TodoService` på att `EventBus.Publish` och handlers ska bli färdiga innan HTTP-svaret skickas. Händelseflödet är därför eventdrivet men fortfarande synkront i samma process.
-
-I en mer avancerad, distribuerad lösning skulle API:et kunna lägga eventet i en meddelandekö och svara direkt. Då skulle loggning och statistik kunna uppdateras lite senare, vilket kallas eventual consistency. Det är en möjlig vidareutveckling, inte något som händer i vår nuvarande app.
-
-## Vilka saker blir svårare med Event-driven Architecture?
-
-Den största nackdelen är att flödet inte längre är lika enkelt att följa som ett direkt anrop från A till B. När `TodoService` publicerar ett event kan flera olika handlers reagera, och dessa reaktioner kan i sin tur skapa ytterligare händelser.
-
-Det leder till flera utmaningar:
-
-- **Felsökning blir svårare.** Man måste följa både producer, EventBus och alla handlers.
-- **Fel kan inträffa efter att huvudoperationen lyckats.** Todo:n kan vara sparad även om loggningen misslyckas.
-- **Ordning kan bli viktig.** Vissa events måste behandlas före andra.
-- **Dubbletter måste hanteras.** En handler kan få samma event mer än en gång i ett köbaserat system.
-- **Retries kan skapa nya problem.** Om en operation körs om måste handlern vara idempotent, alltså ge samma resultat även om den körs flera gånger.
-- **Data kan vara tillfälligt ur synk.** Statistik eller notifieringar kanske uppdateras efter att huvuddata redan ändrats.
-- **Eventens format behöver vara stabilt.** Om ett event ändras kan flera subscribers påverkas.
-- **Testerna blir mer omfattande.** Man behöver testa både varje handler och hela eventflödet.
-
-I vår lilla implementation blir problemen mindre eftersom allt körs lokalt och direkt, men EventBus gör fortfarande flödet mindre synligt än ett vanligt metodanrop.
-
-## Hur hade det blivit i ett av våra större projekt?
-
-I ett större projekt hade Event-driven Architecture kunnat vara användbar om samma händelse behöver påverka flera oberoende delar.
-
-Exempelvis kan en händelse som `OrderCreated` leda till att:
-
-- lager uppdateras,
-- betalning kontrolleras,
-- kunden får en bekräftelse,
-- statistik uppdateras,
-- en revisionshistorik sparas.
-
-Utan events måste orderdelen känna till och anropa alla dessa komponenter. Med events kan varje del prenumerera på `OrderCreated` och utvecklas mer självständigt. Det hade också gjort det enklare för flera team att arbeta parallellt.
-
-Samtidigt hade vi inte automatiskt velat använda Event-driven Architecture för varje del av ett stort projekt. För enkla och direkta operationer kan ett vanligt synkront anrop vara tydligare och enklare att underhålla.
-
-Om vi använde denna arkitektur i ett större, distribuerat projekt hade vi eventuellt behövt komplettera den med exempelvis:
-
-- en riktig message broker eller kö,
-- persistent lagring av events,
-- retries och dead-letter queues,
-- idempotenta handlers,
-- correlation IDs för att följa ett event genom systemet,
-- strukturerad loggning och bättre övervakning,
-- tydliga regler för event-versionering.
-
-Frontendens uppdatering hade också kunnat bli mer eventdriven. I vår nuvarande app hämtar frontend data på nytt efter varje request. I ett större system skulle WebSockets eller Server-Sent Events kunna skicka förändringar direkt till användarens skärm.
+Producentens centrala kontrakt kan ändå vara detsamma: den publicerar vad som har hänt
+utan att känna till vem som reagerar.
 
 ## Sammanfattning
 
-Event-driven Architecture passar bra när flera delar av ett system behöver reagera på samma händelse och när man vill minska direkt koppling mellan komponenter.
-
-I vår todo-app publicerar `TodoService` events och låter `EventBus` skicka dem till handlers för statistik och loggning. Det gör det enkelt att lägga till nya reaktioner utan att ändra huvudlogiken.
-
-Nackdelen är att flödet blir svårare att följa och felsöka. I större, distribuerade system behöver man dessutom hantera fördröjningar, dubbletter, retries, ordning och att data kan vara tillfälligt ur synk.
-
-Vår implementation är därför en liten, synkron och lokal variant av event-driven architecture. Den visar grundprincipen, men saknar den meddelandekö och distribuerade infrastruktur som ofta finns i större produktionstillämpningar.
+Projektet demonstrerar nu skillnaden mellan att bara använda eventliknande metodanrop
+och att faktiskt behandla events asynkront. API:et avslutar huvudoperationen efter att
+eventet köats, consumers reagerar oberoende, statistiken blir eventually consistent och
+hela flödet kan följas live. Samtidigt är implementationens lokala och icke-beständiga
+begränsningar tydligt dokumenterade.

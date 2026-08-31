@@ -1,3 +1,4 @@
+using System.Text.Json;
 using arkitektur.Application;
 using arkitektur.Application.Events;
 using arkitektur.Application.Handlers;
@@ -10,14 +11,18 @@ using arkitektur.Infrastructure.Statistics;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<EventProcessingOptions>(
+    builder.Configuration.GetSection(EventProcessingOptions.SectionName)
+);
+builder.Services.AddSingleton<EventMonitor>();
 builder.Services.AddSingleton<EventBus>();
 builder.Services.AddSingleton<IEventPublisher>(services =>
     services.GetRequiredService<EventBus>());
+builder.Services.AddHostedService(services => services.GetRequiredService<EventBus>());
 builder.Services.AddSingleton<ITodoRepository, InMemoryTodoRepository>();
 builder.Services.AddSingleton<IActivityLogger, FileActivityLogger>();
-builder.Services.AddSingleton<TodoCreatedHandler>();
-builder.Services.AddSingleton<TodoUpdatedHandler>();
-builder.Services.AddSingleton<TodoDeletedHandler>();
+builder.Services.AddSingleton<StatisticsEventHandler>();
+builder.Services.AddSingleton<ActivityLogEventHandler>();
 builder.Services.AddSingleton<TodoService>();
 builder.Services.AddSingleton<IStatisticsService, StatisticsService>();
 
@@ -26,12 +31,15 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 var bus = app.Services.GetRequiredService<EventBus>();
-var todoCreatedHandler = app.Services.GetRequiredService<TodoCreatedHandler>();
-var todoUpdatedHandler = app.Services.GetRequiredService<TodoUpdatedHandler>();
-var todoDeletedHandler = app.Services.GetRequiredService<TodoDeletedHandler>();
-bus.Subscribe<TodoCreated>(todoCreatedHandler);
-bus.Subscribe<TodoUpdated>(todoUpdatedHandler);
-bus.Subscribe<TodoDeleted>(todoDeletedHandler);
+var statisticsHandler = app.Services.GetRequiredService<StatisticsEventHandler>();
+var activityLogHandler = app.Services.GetRequiredService<ActivityLogEventHandler>();
+
+bus.Subscribe<TodoCreated>(statisticsHandler);
+bus.Subscribe<TodoCreated>(activityLogHandler);
+bus.Subscribe<TodoUpdated>(statisticsHandler);
+bus.Subscribe<TodoUpdated>(activityLogHandler);
+bus.Subscribe<TodoDeleted>(statisticsHandler);
+bus.Subscribe<TodoDeleted>(activityLogHandler);
 
 app.MapGet(
     "/todos",
@@ -117,6 +125,36 @@ app.MapGet(
                 statistics.DeletedCount,
             }
         );
+    }
+);
+
+app.MapGet(
+    "/events/stream",
+    async (HttpContext context, EventMonitor monitor) =>
+    {
+        context.Response.Headers.CacheControl = "no-cache";
+        context.Response.Headers.Connection = "keep-alive";
+        context.Response.Headers.Append("X-Accel-Buffering", "no");
+        context.Response.ContentType = "text/event-stream";
+
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+
+        try
+        {
+            await foreach (var trace in monitor.Subscribe(context.RequestAborted))
+            {
+                var json = JsonSerializer.Serialize(trace, jsonOptions);
+                await context.Response.WriteAsync(
+                    $"id: {trace.Sequence}\nevent: event-trace\ndata: {json}\n\n",
+                    context.RequestAborted
+                );
+                await context.Response.Body.FlushAsync(context.RequestAborted);
+            }
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // EventSource clients reconnect automatically after a disconnected request.
+        }
     }
 );
 

@@ -38,7 +38,7 @@ public class TodoService(ITodoRepository repository, IEventPublisher eventPublis
             repository.Add(todo);
         }
 
-        await eventPublisher.Publish(new TodoCreated(todo));
+        await eventPublisher.Publish(new TodoCreated(todo.Id, todo.Title));
 
         return todo;
     }
@@ -66,7 +66,7 @@ public class TodoService(ITodoRepository repository, IEventPublisher eventPublis
         }
         todo.IsCompleted = true;
         repository.Update(todo);
-        await eventPublisher.Publish(new TodoUpdated(todo));
+        await eventPublisher.Publish(new TodoUpdated(todo.Id, todo.Title, todo.IsCompleted));
         return true;
     }
 
@@ -84,7 +84,7 @@ public class TodoService(ITodoRepository repository, IEventPublisher eventPublis
 
         todo.IsCompleted = false;
         repository.Update(todo);
-        await eventPublisher.Publish(new TodoUpdated(todo));
+        await eventPublisher.Publish(new TodoUpdated(todo.Id, todo.Title, todo.IsCompleted));
         return true;
     }
 
@@ -96,7 +96,7 @@ public class TodoService(ITodoRepository repository, IEventPublisher eventPublis
             return false;
         }
         repository.Delete(todo);
-        await eventPublisher.Publish(new TodoDeleted(todo));
+        await eventPublisher.Publish(new TodoDeleted(todo.Id, todo.Title, todo.IsCompleted));
         return true;
     }
 }

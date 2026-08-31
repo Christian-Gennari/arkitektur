@@ -2,9 +2,12 @@ import { completeTodo, createTodo, deleteTodo, getStatistics, getTodos, uncomple
 
 let tasks = [];
 let currentFilter = "all";
+let observedEvents = [];
 
 const taskList = document.querySelector("#task-list");
 const taskInput = document.querySelector("#task-title");
+const eventList = document.querySelector("#event-list");
+const eventConnection = document.querySelector("#event-connection");
 
 function toUiTask(todo) {
   return {
@@ -132,6 +135,11 @@ document.querySelector("#clear-completed").addEventListener("click", async () =>
   }
 });
 
+document.querySelector("#clear-events").addEventListener("click", () => {
+  observedEvents = [];
+  renderEventMonitor();
+});
+
 document.addEventListener("keydown", (event) => {
   if (event.key.toLowerCase() === "n" && document.activeElement.tagName !== "INPUT") {
     event.preventDefault();
@@ -151,6 +159,111 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;" })[character]);
 }
 
+function eventStageLabel(stage) {
+  return ({
+    queued: "Queued",
+    processing: "Dispatching",
+    "consumer-started": "Consumer running",
+    "consumer-completed": "Consumer handled",
+    "consumer-failed": "Consumer failed",
+    completed: "Handled",
+    "completed-with-errors": "Handled with errors",
+  })[stage] || stage;
+}
+
+function eventStageClass(stage) {
+  if (stage === "completed") return "is-complete";
+  if (stage === "consumer-failed" || stage === "completed-with-errors") return "is-error";
+  if (stage === "queued") return "is-queued";
+  return "is-processing";
+}
+
+function recordEventTrace(trace) {
+  let observed = observedEvents.find((item) => item.eventId === trace.eventId);
+
+  if (!observed) {
+    observed = {
+      eventId: trace.eventId,
+      eventType: trace.eventType,
+      recordedAt: trace.recordedAt,
+      stage: trace.stage,
+      detail: trace.detail,
+      consumers: {},
+    };
+    observedEvents.unshift(observed);
+    observedEvents = observedEvents.slice(0, 8);
+  }
+
+  observed.stage = trace.stage;
+  observed.detail = trace.detail;
+  observed.recordedAt = trace.recordedAt;
+
+  if (trace.consumer) {
+    observed.consumers[trace.consumer] = trace.stage === "consumer-failed"
+      ? "failed"
+      : trace.stage === "consumer-completed"
+        ? "completed"
+        : "running";
+  }
+
+  renderEventMonitor();
+
+  if (trace.stage === "completed" || trace.stage === "completed-with-errors") {
+    loadStatistics();
+  }
+}
+
+function renderEventMonitor() {
+  if (!observedEvents.length) {
+    eventList.innerHTML = '<div class="event-empty"><strong>Waiting for an event</strong><span>Create or update a task to see the pipeline.</span></div>';
+    return;
+  }
+
+  eventList.innerHTML = observedEvents.map((event) => {
+    const consumers = Object.entries(event.consumers);
+    const consumerMarkup = consumers.length
+      ? consumers.map(([name, state]) => `<span class="consumer-state is-${state}"><i></i>${escapeHtml(name)}</span>`).join("")
+      : '<span class="consumer-state"><i></i>Waiting for dispatcher</span>';
+    const time = new Date(event.recordedAt).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    return `
+      <article class="event-item ${eventStageClass(event.stage)}">
+        <div class="event-item-heading">
+          <strong>${escapeHtml(event.eventType)}</strong>
+          <time>${time}</time>
+        </div>
+        <div class="event-meta">
+          <code>#${escapeHtml(event.eventId.slice(0, 8))}</code>
+          <span>${escapeHtml(eventStageLabel(event.stage))}</span>
+        </div>
+        <div class="consumer-states">${consumerMarkup}</div>
+      </article>`;
+  }).join("");
+}
+
+function connectEventMonitor() {
+  const eventSource = new EventSource("/events/stream");
+
+  eventSource.addEventListener("open", () => {
+    eventConnection.className = "connection-status is-connected";
+    eventConnection.innerHTML = '<i aria-hidden="true"></i>Live';
+  });
+
+  eventSource.addEventListener("event-trace", (message) => {
+    recordEventTrace(JSON.parse(message.data));
+  });
+
+  eventSource.addEventListener("error", () => {
+    eventConnection.className = "connection-status is-connecting";
+    eventConnection.innerHTML = '<i aria-hidden="true"></i>Reconnecting';
+  });
+}
+
 const currentDate = new Date();
 document.querySelector("#current-date").textContent = currentDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+connectEventMonitor();
 refresh();
