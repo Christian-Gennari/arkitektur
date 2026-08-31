@@ -3,11 +3,13 @@ using arkitektur.Models;
 using arkitektur.Models.Events;
 using arkitektur.Repositories;
 using arkitektur.Shared;
+using arkitektur.Service;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<EventBus>();
 builder.Services.AddSingleton<TodoRepository>();
+builder.Services.AddSingleton<TodoService>();
 
 var app = builder.Build();
 
@@ -18,11 +20,10 @@ bus.Subscribe<TodoCreated>(new TodoCreatedHandler());
 
 app.MapPost(
     "/todos",
-    async (Todo todo, TodoRepository repo, EventBus bus) =>
+    async (Todo todo, TodoService service) =>
     {
-        repo.Add(todo);
-        await bus.Publish(new TodoCreated(todo));
-        return Results.Created($"/todos/{todo.Id}", todo);
+        var created = await service.Create(todo.Title);
+        return Results.Created($"/todos/{created.Id}", created);
     }
 );
 

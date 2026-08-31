@@ -20,7 +20,6 @@ public class TodoService(TodoRepository repository, EventBus eventBus)
         };
 
         repository.Add(todo);
-
         
         await eventBus.Publish(new TodoCreated(todo));
 
