@@ -1,3 +1,4 @@
+using arkitektur.Interfaces;
 using arkitektur.Models;
 using arkitektur.Models.Events;
 
