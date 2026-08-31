@@ -15,6 +15,7 @@ builder.Services.AddSingleton<TodoCreatedHandler>();
 builder.Services.AddSingleton<TodoUpdatedHandler>();    
 builder.Services.AddSingleton<TodoDeletedHandler>();   
 builder.Services.AddSingleton<TodoService>();
+builder.Services.AddSingleton<IStatisticsService, StatisticsService>();
 
 var app = builder.Build();
 
@@ -27,6 +28,8 @@ var todoDeletedHandler = app.Services.GetRequiredService<TodoDeletedHandler>();
 bus.Subscribe<TodoCreated>(todoCreatedHandler);
 bus.Subscribe<TodoUpdated>(todoUpdatedHandler);
 bus.Subscribe<TodoDeleted>(todoDeletedHandler);
+
+
 
 app.MapPost(
     "/todos",
