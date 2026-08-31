@@ -5,27 +5,27 @@ namespace arkitektur.Shared;
 
 public class EventBus
 {
-    private readonly ConcurrentDictionary<Type, List<IEventHandler>> _handlers = new();
+    private readonly ConcurrentDictionary<Type, List<IEventHandler>> handlers = new();
 
     public void Subscribe<TEvent>(IEventHandler<TEvent> handler) where TEvent : IEvent
     {
         var eventType = typeof(TEvent);
-        _handlers.GetOrAdd(eventType, _ => new List<IEventHandler>())
+        handlers.GetOrAdd(eventType, _ => new List<IEventHandler>())
             .Add(handler);
     }
 
     public void Unsubscribe<TEvent>(IEventHandler<TEvent> handler) where TEvent : IEvent
     {
         var eventType = typeof(TEvent);
-        if (_handlers.ContainsKey(eventType))
-            _handlers[eventType].Remove(handler);
+        if (handlers.ContainsKey(eventType))
+            handlers[eventType].Remove(handler);
     }
 
     public async Task Publish<TEvent>(TEvent @event) where TEvent : IEvent
     {
         var eventType = typeof(TEvent);
-        if (!_handlers.ContainsKey(eventType)) return;
-        foreach (var handler in _handlers[eventType].ToList())
+        if (!handlers.ContainsKey(eventType)) return;
+        foreach (var handler in handlers[eventType].ToList())
         {
             await ((IEventHandler<TEvent>)handler).Handle(@event);
         }
