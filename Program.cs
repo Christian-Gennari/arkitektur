@@ -65,6 +65,10 @@ app.MapPost(
         {
             return Results.BadRequest(ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Conflict(ex.Message);
+        }
     }
 );
 

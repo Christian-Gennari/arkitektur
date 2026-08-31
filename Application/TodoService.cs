@@ -6,6 +6,8 @@ using arkitektur.Domain.Models;
 
 public class TodoService(ITodoRepository repository, IEventPublisher eventPublisher)
 {
+    private readonly Lock createLock = new();
+
     public async Task<Todo> Create(string title)
     {
         if (string.IsNullOrWhiteSpace(title))
@@ -13,16 +15,28 @@ public class TodoService(ITodoRepository repository, IEventPublisher eventPublis
             throw new ArgumentException("Title kan inte vara tom.", nameof(title));
         }
 
-        var allTodos = repository.GetAll();
-        var nextId = allTodos.Count > 0 ? allTodos.Max(t => t.Id) + 1 : 1;
-        var todo = new Todo
+        Todo todo;
+        lock (createLock)
         {
-            Id = nextId,
-            Title = title,
-            IsCompleted = false
-        };
+            var highestId = repository.GetAll()
+                .Select(todo => todo.Id)
+                .DefaultIfEmpty(0)
+                .Max();
 
-        repository.Add(todo);
+            if (highestId == int.MaxValue)
+            {
+                throw new InvalidOperationException("Det går inte att skapa fler todos eftersom ID-numret har nått maxgränsen.");
+            }
+
+            todo = new Todo
+            {
+                Id = highestId + 1,
+                Title = title,
+                IsCompleted = false
+            };
+
+            repository.Add(todo);
+        }
 
         await eventPublisher.Publish(new TodoCreated(todo));
 

@@ -6,21 +6,32 @@ namespace arkitektur.Infrastructure.Repositories;
 public class TodoRepository : ITodoRepository
 {
     private readonly List<Todo> todos = [];
+    private readonly Lock syncRoot = new();
 
     #region Get methods
     public List<Todo> GetAll()
     {
-        return todos;
+        lock (syncRoot)
+        {
+            return todos.Select(Clone).ToList();
+        }
     }
 
     public Todo? GetById(int id)
     {
-        return todos.FirstOrDefault(t => t.Id == id);
+        lock (syncRoot)
+        {
+            var todo = todos.FirstOrDefault(t => t.Id == id);
+            return todo is null ? null : Clone(todo);
+        }
     }
 
     public void Add(Todo todo)
     {
-        todos.Add(todo);
+        lock (syncRoot)
+        {
+            todos.Add(Clone(todo));
+        }
     }
 
     #endregion
@@ -28,17 +39,33 @@ public class TodoRepository : ITodoRepository
     #region Update and Delete Methods
     public void Update(Todo todo)
     {
-        var existingTodo = todos.FirstOrDefault(t => t.Id == todo.Id);
-        if (existingTodo != null)
+        lock (syncRoot)
         {
-            existingTodo.Title = todo.Title;
-            existingTodo.IsCompleted = todo.IsCompleted;
+            var existingTodo = todos.FirstOrDefault(t => t.Id == todo.Id);
+            if (existingTodo != null)
+            {
+                existingTodo.Title = todo.Title;
+                existingTodo.IsCompleted = todo.IsCompleted;
+            }
         }
     }
 
     public void Delete(Todo todo)
     {
-        todos.Remove(todo);
+        lock (syncRoot)
+        {
+            todos.RemoveAll(item => item.Id == todo.Id);
+        }
+    }
+
+    private static Todo Clone(Todo todo)
+    {
+        return new Todo
+        {
+            Id = todo.Id,
+            Title = todo.Title,
+            IsCompleted = todo.IsCompleted
+        };
     }
 
     #endregion
