@@ -29,6 +29,8 @@ bus.Subscribe<TodoCreated>(todoCreatedHandler);
 bus.Subscribe<TodoUpdated>(todoUpdatedHandler);
 bus.Subscribe<TodoDeleted>(todoDeletedHandler);
 
+
+
 app.MapPost(
     "/todos",
     async (Todo todo, TodoService service) =>
