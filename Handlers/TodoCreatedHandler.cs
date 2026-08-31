@@ -11,7 +11,6 @@ public class TodoCreatedHandler(
     public async Task Handle(TodoCreated @event)
     {
         statistics.RecordCreated();
-        await logger.LogAsync("CREATE", $"Todo {@event.Todo.Id} skapad: {@event.Todo.Title}");
-        await logger.LogAsync("SKAPAD", $"Todo skapad: {@event.Todo.Id} - {@event.Todo.Title}");
+        await logger.LogAsync("CREATE", $"Todo skapad: {@event.Todo.Id} - {@event.Todo.Title}");
     }
 }
