@@ -46,8 +46,8 @@ app.MapGet(
     (int id, TodoService service) =>
     {
         var todo = service.GetById(id);
-        return todo is not null 
-            ? Results.Ok(todo) 
+        return todo is not null
+            ? Results.Ok(todo)
             : Results.NotFound();
     }
 );
@@ -62,7 +62,7 @@ app.MapPost(
             return Results.Created($"/todos/{created.Id}", created);
         }
         catch (ArgumentException ex)
-        { 
+        {
             return Results.BadRequest(ex.Message);
         }
     }
@@ -73,8 +73,8 @@ app.MapPut(
     async (int id, TodoService service) =>
     {
         var success = await service.Complete(id);
-        return success 
-            ? Results.Ok($"Todo {id} markerades som klar!") 
+        return success
+            ? Results.Ok($"Todo {id} markerades som klar!")
             : Results.NotFound();
     }
 );
@@ -84,8 +84,8 @@ app.MapDelete(
     async (int id, TodoService service) =>
     {
         var success = await service.Delete(id);
-        return success 
-            ? Results.NoContent() 
+        return success
+            ? Results.NoContent()
             : Results.NotFound();
     }
 );
