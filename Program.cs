@@ -16,8 +16,6 @@ app.UseStaticFiles();
 var bus = app.Services.GetRequiredService<EventBus>();
 bus.Subscribe<TodoCreated>(new TodoCreatedHandler());
 
-app.MapGet("/", () => "Hello World!");
-
 app.MapPost(
     "/todos",
     async (Todo todo, TodoRepository repo, EventBus bus) =>
