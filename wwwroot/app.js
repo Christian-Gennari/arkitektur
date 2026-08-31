@@ -1,26 +1,50 @@
-const STORAGE_KEY = "tasks-v1";
+import { completeTodo, createTodo, deleteTodo, getStatistics, getTodos } from "./api.js";
 
-const starterTasks = [
-  { id: 1, title: "Review project brief and define next steps", due: "Today", project: "Work", completed: false },
-  { id: 2, title: "Book a table for Friday dinner", due: "Today", project: "Personal", completed: false },
-  { id: 3, title: "Read chapter 4 of Atomic Habits", due: "Tomorrow", project: "Learning", completed: false },
-  { id: 4, title: "Send the updated presentation to the team", due: "Today", project: "Work", completed: true },
-  { id: 5, title: "Plan meals and make a grocery list", due: "This week", project: "Personal", completed: true },
-];
-
-let tasks = loadTasks();
+let tasks = [];
 let currentFilter = "all";
+
 const taskList = document.querySelector("#task-list");
 const taskInput = document.querySelector("#task-title");
 
-function loadTasks() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || starterTasks; } catch { return starterTasks; }
+function toUiTask(todo) {
+  return {
+    id: todo.id,
+    title: todo.title,
+    due: "Today",
+    project: "Personal",
+    completed: todo.isCompleted,
+  };
 }
 
-function saveTasks() { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); }
+async function loadTasks() {
+  try {
+    tasks = (await getTodos()).map(toUiTask);
+    render();
+  } catch {
+    showToast("Could not load tasks");
+  }
+}
+
+async function loadStatistics() {
+  try {
+    const statistics = await getStatistics();
+    document.querySelector("#created-stat").textContent = statistics.createdCount;
+    document.querySelector("#completed-stat").textContent = statistics.completedCount;
+    document.querySelector("#deleted-stat").textContent = statistics.deletedCount;
+  } catch {
+    showToast("Could not load statistics");
+  }
+}
+
+async function refresh() {
+  await Promise.all([loadTasks(), loadStatistics()]);
+}
 
 function visibleTasks() {
-  return tasks.filter((task) => currentFilter === "all" || (currentFilter === "open" && !task.completed) || (currentFilter === "done" && task.completed));
+  return tasks.filter((task) =>
+    currentFilter === "all"
+      || (currentFilter === "open" && !task.completed)
+      || (currentFilter === "done" && task.completed));
 }
 
 function checkIcon() { return '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4.2 4.2L19 6.5" /></svg>'; }
@@ -30,61 +54,92 @@ function render() {
   const visible = visibleTasks();
   taskList.innerHTML = visible.length ? visible.map((task) => `
     <article class="task-item ${task.completed ? "is-completed" : ""}" data-id="${task.id}">
-      <button class="task-check ${task.completed ? "checked" : ""}" type="button" aria-label="${task.completed ? "Mark incomplete" : "Mark complete"}: ${escapeHtml(task.title)}">${task.completed ? checkIcon() : ""}</button>
+      <button class="task-check ${task.completed ? "checked" : ""}" type="button" aria-label="${task.completed ? "Completed" : "Mark complete"}: ${escapeHtml(task.title)}">${task.completed ? checkIcon() : ""}</button>
       <div class="task-details"><span class="task-title">${escapeHtml(task.title)}</span><div class="task-meta"><span>${calendarIcon()}${task.due}</span><span class="task-project">${escapeHtml(task.project)}</span></div></div>
       <div class="task-actions"><button class="delete-task" type="button" aria-label="Delete ${escapeHtml(task.title)}" title="Delete task">×</button></div>
     </article>`).join("") : '<div class="empty-state"><strong>Nothing here</strong><span>Add a task above and keep your day moving.</span></div>';
 
-  document.querySelectorAll(".task-check").forEach((button) => button.addEventListener("click", () => toggleTask(button.closest(".task-item").dataset.id)));
-  document.querySelectorAll(".delete-task").forEach((button) => button.addEventListener("click", () => deleteTask(button.closest(".task-item").dataset.id)));
+  document.querySelectorAll(".task-check").forEach((button) => button.addEventListener("click", () => completeTask(button.closest(".task-item").dataset.id)));
+  document.querySelectorAll(".delete-task").forEach((button) => button.addEventListener("click", () => removeTask(button.closest(".task-item").dataset.id)));
 
   const completed = tasks.filter((task) => task.completed).length;
   document.querySelector("#task-count").textContent = `${visible.length} ${visible.length === 1 ? "task" : "tasks"}`;
   document.querySelector("#progress-label").textContent = `${tasks.length - completed} open · ${completed} done`;
 }
 
-function toggleTask(id) {
+async function completeTask(id) {
   const task = tasks.find((item) => String(item.id) === String(id));
-  if (!task) return;
-  task.completed = !task.completed;
-  saveTasks(); render(); showToast(task.completed ? "Task completed" : "Task reopened");
+  if (!task || task.completed) return;
+
+  try {
+    await completeTodo(id);
+    await refresh();
+    showToast("Task completed");
+  } catch {
+    showToast("Could not complete task");
+  }
 }
 
-function deleteTask(id) {
-  tasks = tasks.filter((item) => String(item.id) !== String(id));
-  saveTasks(); render(); showToast("Task deleted");
+async function removeTask(id) {
+  try {
+    await deleteTodo(id);
+    await refresh();
+    showToast("Task deleted");
+  } catch {
+    showToast("Could not delete task");
+  }
 }
 
-document.querySelector("#quick-add").addEventListener("submit", (event) => {
+document.querySelector("#quick-add").addEventListener("submit", async (event) => {
   event.preventDefault();
   const title = taskInput.value.trim();
   if (!title) return;
-  tasks.unshift({ id: Date.now(), title, due: "Today", project: "Personal", completed: false });
-  saveTasks(); render(); taskInput.value = ""; showToast("Task added");
+
+  try {
+    await createTodo(title);
+    taskInput.value = "";
+    await refresh();
+    showToast("Task added");
+  } catch {
+    showToast("Could not add task");
+  }
 });
 
 document.querySelectorAll(".filter").forEach((button) => button.addEventListener("click", () => {
   currentFilter = button.dataset.filter;
   document.querySelectorAll(".filter").forEach((item) => {
     const active = item === button;
-    item.classList.toggle("active", active); item.setAttribute("aria-selected", active);
+    item.classList.toggle("active", active);
+    item.setAttribute("aria-selected", active);
   });
   render();
 }));
 
-document.querySelector("#clear-completed").addEventListener("click", () => {
-  const count = tasks.filter((task) => task.completed).length;
-  if (!count) return showToast("Nothing to clear");
-  tasks = tasks.filter((task) => !task.completed); saveTasks(); render(); showToast(`${count} ${count === 1 ? "task" : "tasks"} cleared`);
+document.querySelector("#clear-completed").addEventListener("click", async () => {
+  const completed = tasks.filter((task) => task.completed);
+  if (!completed.length) return showToast("Nothing to clear");
+
+  try {
+    await Promise.all(completed.map((task) => deleteTodo(task.id)));
+    await refresh();
+    showToast(`${completed.length} ${completed.length === 1 ? "task" : "tasks"} cleared`);
+  } catch {
+    showToast("Could not clear completed tasks");
+  }
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key.toLowerCase() === "n" && document.activeElement.tagName !== "INPUT") { event.preventDefault(); taskInput.focus(); }
+  if (event.key.toLowerCase() === "n" && document.activeElement.tagName !== "INPUT") {
+    event.preventDefault();
+    taskInput.focus();
+  }
 });
 
 function showToast(message) {
   const toast = document.querySelector("#toast");
-  toast.textContent = message; toast.classList.add("show"); clearTimeout(showToast.timeout);
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(showToast.timeout);
   showToast.timeout = setTimeout(() => toast.classList.remove("show"), 1800);
 }
 
@@ -94,4 +149,4 @@ function escapeHtml(value) {
 
 const currentDate = new Date();
 document.querySelector("#current-date").textContent = currentDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-render();
+refresh();

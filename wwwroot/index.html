@@ -27,6 +27,18 @@
           <p class="subtitle">A clear mind starts with a clear list.</p>
         </section>
 
+        <section class="statistics-card" aria-labelledby="statistics-heading">
+          <div class="statistics-heading">
+            <p class="eyebrow" id="statistics-heading">ACTIVITY STATISTICS</p>
+            <span>All activity this session</span>
+          </div>
+          <div class="statistics-grid">
+            <div class="stat"><strong id="created-stat">0</strong><span>Created</span></div>
+            <div class="stat"><strong id="completed-stat">0</strong><span>Completed</span></div>
+            <div class="stat"><strong id="deleted-stat">0</strong><span>Deleted</span></div>
+          </div>
+        </section>
+
         <section class="task-card" aria-labelledby="tasks-heading">
           <h2 id="tasks-heading" class="visually-hidden">Tasks</h2>
           <form class="quick-add" id="quick-add">
@@ -86,6 +98,6 @@
       </main>
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/app.js"></script>
+    <script type="module" src="/app.js"></script>
   </body>
 </html>

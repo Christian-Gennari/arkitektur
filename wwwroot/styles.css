@@ -30,11 +30,15 @@ main { width: min(100%, 640px); margin: 0 auto; padding: 86px 0 45px; }
 h1 { margin: 0; font-size: clamp(30px, 5vw, 42px); font-weight: 600; letter-spacing: -1.8px; line-height: 1.1; }
 .subtitle { margin: 13px 0 0; color: var(--secondary); font-size: 15px; }
 
+.statistics-card { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 18px; padding: 18px 22px; border: 1px solid rgba(0, 0, 0, .06); border-radius: 18px; background: var(--card); box-shadow: 0 10px 35px rgba(0, 0, 0, .04); }
+.statistics-heading { min-width: 160px; }.statistics-heading .eyebrow { margin: 0 0 5px; }.statistics-heading > span { color: var(--secondary); font-size: 11px; }
+.statistics-grid { display: flex; gap: 28px; }.stat { display: grid; gap: 3px; min-width: 58px; }.stat strong { font-size: 21px; font-weight: 600; }.stat span { color: var(--secondary); font-size: 11px; }
+
 .task-card { overflow: hidden; border: 1px solid rgba(0, 0, 0, .06); border-radius: 18px; background: var(--card); box-shadow: 0 10px 35px rgba(0, 0, 0, .05); }
 .quick-add { display: flex; align-items: center; gap: 12px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
 .quick-add input { width: 100%; min-width: 0; height: 34px; padding: 0; border: 0; outline: 0; color: var(--text); font-size: 15px; }
 .quick-add input::placeholder { color: #b2b2b7; }
-.quick-add button { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0 0 2px; border: 0; border-radius: 50%; background: var(--blue); color: white; font-size: 23px; font-weight: 300; line-height: 1; transition: transform .2s ease, background .2s ease; }
+.quick-add button { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex: 0 0 30px; aspect-ratio: 1; padding: 0 0 2px; border: 0; border-radius: 50%; background: var(--blue); color: white; font-size: 23px; font-weight: 300; line-height: 1; transition: transform .2s ease, background .2s ease; }
 .quick-add button:hover { background: #0077ed; transform: scale(1.06); }
 
 .list-header { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 22px; border-bottom: 1px solid var(--line); }
@@ -71,6 +75,7 @@ h1 { margin: 0; font-size: clamp(30px, 5vw, 42px); font-weight: 600; letter-spac
 @media (max-width: 680px) { .app-shell { width: min(100% - 32px, 640px); } main { padding-top: 58px; } }
 @media (max-width: 480px) {
   .app-shell { width: min(100% - 24px, 640px); }.topbar { height: 66px; } main { padding-top: 45px; }.intro { margin-bottom: 27px; }
+  .statistics-card { display: block; }.statistics-grid { justify-content: space-between; margin-top: 16px; }
   .quick-add, .list-header { padding-left: 16px; padding-right: 16px; }.task-list { padding-left: 16px; padding-right: 16px; }.list-footer { padding-left: 16px; padding-right: 16px; }
   .task-item { gap: 10px; }.task-actions { opacity: 1; }
 }
