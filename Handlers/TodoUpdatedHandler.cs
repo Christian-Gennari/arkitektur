@@ -7,6 +7,6 @@ public class TodoUpdatedHandler(IActivityLogger logger) : IEventHandler<TodoUpda
 {
     public async Task Handle(TodoUpdated @event)
     {
-        await logger.LogAsync("UPDATE", $"Todo {@event.Todo.Id} uppdaterad: [{@event.Todo.Title}] status [{@event.Todo.IsCompleted}]");
+        await logger.LogAsync("UPPDATERAD", $"Todo uppdaterad: {@event.Todo.Id} - {@event.Todo.Title} [{@event.Todo.IsCompleted}]");
     }
 }
