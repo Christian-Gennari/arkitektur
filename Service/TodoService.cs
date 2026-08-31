@@ -1,14 +1,14 @@
 namespace arkitektur.Service;
+
+using arkitektur.Models;
+using arkitektur.Models.Events;
 using arkitektur.Repositories;
-using arkitektur.Shared; 
+using arkitektur.Shared;
 
-public record TodoCreatedEvent(int Id, string Title, bool IsCompleted);
-public record TodoCompletedEvent(int TodoId, string Title, DateTime CompletedAt);
-public record TodoDeletedEvent(int TodoId);
-
-public class TodoService(TodoRepository repository)
+public class TodoService(TodoRepository repository, EventBus eventBus)
 {
-    public Todo Create(string title)
+   
+    public async Task<Todo> Create(string title)
     {
         var allTodos = repository.GetAll();
         var nextId = allTodos.Count > 0 ? allTodos.Max(t => t.Id) + 1 : 1;
@@ -18,19 +18,25 @@ public class TodoService(TodoRepository repository)
             Title = title,
             IsCompleted = false
         };
+
         repository.Add(todo);
-        // HÄNDELSE: TodoCreatedEvent
-        // eventBus.Publish(new TodoCreatedEvent(todo.Id, todo.Title, todo.IsCompleted));
+
+        
+        await eventBus.Publish(new TodoCreated(todo));
+
         return todo;
     }
+
     public Todo? GetById(int id)
     {
         return repository.GetById(id);
     }
+
     public List<Todo> GetAll()
     {
         return repository.GetAll();
     }
+
     public bool Complete(int id)
     {
         var todo = repository.GetById(id);
@@ -40,10 +46,9 @@ public class TodoService(TodoRepository repository)
         }
         todo.IsCompleted = true;
         repository.Update(todo);
-        // HÄNDELSE: TodoCompletedEvent
-        // eventBus.Publish(new TodoCompletedEvent(todo.Id, todo.Title, DateTime.UtcNow));
         return true;
     }
+
     public bool Delete(int id)
     {
         var todo = repository.GetById(id);
@@ -52,11 +57,6 @@ public class TodoService(TodoRepository repository)
             return false;
         }
         repository.Delete(todo);
-        // HÄNDELSE: TodoDeletedEvent
-        // eventBus.Publish(new TodoDeletedEvent(id));
         return true;
     }
 }
-
-
-
