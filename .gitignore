@@ -430,3 +430,4 @@ FodyWeavers.xsd
 *.msm
 *.msp
 .vscode/settings.json
+log.txt
