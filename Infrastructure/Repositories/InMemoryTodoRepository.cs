@@ -3,7 +3,7 @@ using arkitektur.Domain.Models;
 
 namespace arkitektur.Infrastructure.Repositories;
 
-public class TodoRepository : ITodoRepository
+public class InMemoryTodoRepository : ITodoRepository
 {
     private readonly List<Todo> todos = [];
     private readonly Lock syncRoot = new();
@@ -58,15 +58,16 @@ public class TodoRepository : ITodoRepository
         }
     }
 
+    #endregion
+
+
     private static Todo Clone(Todo todo)
     {
         return new Todo
         {
             Id = todo.Id,
             Title = todo.Title,
-            IsCompleted = todo.IsCompleted
+            IsCompleted = todo.IsCompleted,
         };
     }
-
-    #endregion
 }

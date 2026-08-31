@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<EventBus>();
 builder.Services.AddSingleton<IEventPublisher>(services =>
     services.GetRequiredService<EventBus>());
-builder.Services.AddSingleton<ITodoRepository, TodoRepository>();
+builder.Services.AddSingleton<ITodoRepository, InMemoryTodoRepository>();
 builder.Services.AddSingleton<IActivityLogger, FileActivityLogger>();
 builder.Services.AddSingleton<TodoCreatedHandler>();
 builder.Services.AddSingleton<TodoUpdatedHandler>();
