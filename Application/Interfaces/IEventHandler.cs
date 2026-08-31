@@ -1,4 +1,4 @@
-namespace arkitektur.Interfaces;
+namespace arkitektur.Application.Interfaces;
 
 public interface IEventHandler
 {
@@ -6,5 +6,5 @@ public interface IEventHandler
 
 public interface IEventHandler<T> : IEventHandler where T : IEvent
 {
-    public Task Handle(T @event);
+    Task Handle(T @event);
 }

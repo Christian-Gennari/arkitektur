@@ -1,6 +1,6 @@
-using arkitektur.Interfaces;
+using arkitektur.Application.Interfaces;
 
-namespace arkitektur.Service;
+namespace arkitektur.Infrastructure.Statistics;
 
 public sealed class StatisticsService : IStatisticsService
 {

@@ -1,8 +1,7 @@
-using arkitektur.Interfaces;
-using arkitektur.Models;
-using arkitektur.Models.Events;
+using arkitektur.Application.Events;
+using arkitektur.Application.Interfaces;
 
-namespace arkitektur.Handlers;
+namespace arkitektur.Application.Handlers;
 
 public class TodoCreatedHandler(
     IActivityLogger logger,

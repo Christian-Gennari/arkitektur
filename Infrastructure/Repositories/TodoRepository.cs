@@ -1,8 +1,9 @@
-using arkitektur.Models;
+using arkitektur.Application.Interfaces;
+using arkitektur.Domain.Models;
 
-namespace arkitektur.Repositories;
+namespace arkitektur.Infrastructure.Repositories;
 
-public class TodoRepository
+public class TodoRepository : ITodoRepository
 {
     private readonly List<Todo> todos = [];
 

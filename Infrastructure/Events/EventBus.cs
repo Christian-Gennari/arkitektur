@@ -1,10 +1,9 @@
 using System.Collections.Concurrent;
-using arkitektur.Interfaces;
-using arkitektur.Models;
+using arkitektur.Application.Interfaces;
 
-namespace arkitektur.Shared;
+namespace arkitektur.Infrastructure.Events;
 
-public class EventBus
+public class EventBus : IEventPublisher
 {
     private readonly ConcurrentDictionary<Type, List<IEventHandler>> handlers = new();
 

@@ -1,4 +1,4 @@
-namespace arkitektur.Interfaces;
+namespace arkitektur.Application.Interfaces;
 
 public interface IActivityLogger
 {

@@ -1,4 +1,4 @@
-namespace arkitektur.Models;
+namespace arkitektur.Domain.Models;
 
 public class Todo
 {

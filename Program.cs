@@ -1,15 +1,19 @@
-using arkitektur.Handlers;
-using arkitektur.Interfaces;
-using arkitektur.Models;
-using arkitektur.Models.Events;
-using arkitektur.Repositories;
-using arkitektur.Service;
-using arkitektur.Shared;
+using arkitektur.Application;
+using arkitektur.Application.Events;
+using arkitektur.Application.Handlers;
+using arkitektur.Application.Interfaces;
+using arkitektur.Domain.Models;
+using arkitektur.Infrastructure.Events;
+using arkitektur.Infrastructure.Logging;
+using arkitektur.Infrastructure.Repositories;
+using arkitektur.Infrastructure.Statistics;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<EventBus>();
-builder.Services.AddSingleton<TodoRepository>();
+builder.Services.AddSingleton<IEventPublisher>(services =>
+    services.GetRequiredService<EventBus>());
+builder.Services.AddSingleton<ITodoRepository, TodoRepository>();
 builder.Services.AddSingleton<IActivityLogger, FileActivityLogger>();
 builder.Services.AddSingleton<TodoCreatedHandler>();
 builder.Services.AddSingleton<TodoUpdatedHandler>();
