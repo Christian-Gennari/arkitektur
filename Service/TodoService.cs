@@ -43,6 +43,10 @@ public class TodoService(TodoRepository repository, EventBus eventBus)
     {
         return false;
     }
+    if (todo.IsCompleted)
+    {
+        return true;
+    }
     todo.IsCompleted = true;
     repository.Update(todo);
     await eventBus.Publish(new TodoUpdated(todo));
