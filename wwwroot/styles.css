@@ -1,0 +1,76 @@
+:root {
+  --background: #f5f5f7;
+  --card: #ffffff;
+  --text: #1d1d1f;
+  --secondary: #86868b;
+  --tertiary: #b8b8bd;
+  --line: #e8e8ed;
+  --blue: #0071e3;
+  --blue-soft: #eaf3ff;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--background);
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+html { min-width: 320px; }
+body { margin: 0; min-height: 100vh; background: var(--background); }
+button, input { font: inherit; }
+button { cursor: pointer; }
+
+.app-shell { width: min(100% - 40px, 920px); margin: 0 auto; }
+.topbar { display: flex; align-items: center; justify-content: space-between; height: 78px; border-bottom: 1px solid rgba(0, 0, 0, .07); }
+.brand { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -.3px; text-decoration: none; }
+.topbar time { color: var(--secondary); font-size: 12px; }
+
+main { width: min(100%, 640px); margin: 0 auto; padding: 86px 0 45px; }
+.intro { margin-bottom: 34px; }
+.eyebrow { margin: 0 0 13px; color: var(--secondary); font-size: 10px; font-weight: 600; letter-spacing: 1.2px; }
+h1 { margin: 0; font-size: clamp(30px, 5vw, 42px); font-weight: 600; letter-spacing: -1.8px; line-height: 1.1; }
+.subtitle { margin: 13px 0 0; color: var(--secondary); font-size: 15px; }
+
+.task-card { overflow: hidden; border: 1px solid rgba(0, 0, 0, .06); border-radius: 18px; background: var(--card); box-shadow: 0 10px 35px rgba(0, 0, 0, .05); }
+.quick-add { display: flex; align-items: center; gap: 12px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
+.quick-add input { width: 100%; min-width: 0; height: 34px; padding: 0; border: 0; outline: 0; color: var(--text); font-size: 15px; }
+.quick-add input::placeholder { color: #b2b2b7; }
+.quick-add button { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0 0 2px; border: 0; border-radius: 50%; background: var(--blue); color: white; font-size: 23px; font-weight: 300; line-height: 1; transition: transform .2s ease, background .2s ease; }
+.quick-add button:hover { background: #0077ed; transform: scale(1.06); }
+
+.list-header { display: flex; align-items: center; justify-content: space-between; min-height: 56px; padding: 0 22px; border-bottom: 1px solid var(--line); }
+.filters { display: flex; gap: 4px; }
+.filter { padding: 7px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--secondary); font-size: 12px; }
+.filter:hover { color: var(--text); background: #f5f5f7; }
+.filter.active { background: var(--blue-soft); color: var(--blue); font-weight: 500; }
+.task-count { color: var(--tertiary); font-size: 12px; }
+
+.task-list { padding: 5px 22px; }
+.task-item { display: flex; align-items: center; gap: 13px; min-height: 64px; border-bottom: 1px solid var(--line); }
+.task-item:last-child { border-bottom: 0; }
+.task-check { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex: 0 0 20px; padding: 0; border: 1.5px solid #c7c7cc; border-radius: 50%; background: transparent; color: white; transition: .2s ease; }
+.task-check:hover { border-color: var(--blue); }
+.task-check.checked { border-color: var(--blue); background: var(--blue); }
+.task-check svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.4; }
+.task-details { min-width: 0; flex: 1; }
+.task-title { display: block; overflow: hidden; font-size: 14px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.is-completed .task-title { color: var(--tertiary); text-decoration: line-through; }
+.task-meta { display: flex; gap: 10px; margin-top: 4px; color: var(--secondary); font-size: 11px; }
+.task-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.task-meta svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+.task-project { color: var(--secondary); }.task-project::before { content: "·"; margin-right: 1px; color: var(--tertiary); }
+.task-actions { opacity: 0; transition: opacity .2s ease; }.task-item:hover .task-actions, .task-actions:focus-within { opacity: 1; }
+.delete-task { padding: 4px 5px; border: 0; background: transparent; color: var(--tertiary); font-size: 18px; line-height: 1; }.delete-task:hover { color: #ff3b30; }
+.empty-state { padding: 46px 20px; color: var(--secondary); text-align: center; }.empty-state strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 14px; font-weight: 500; }.empty-state span { font-size: 12px; }
+
+.list-footer { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 22px; border-top: 1px solid var(--line); color: var(--secondary); font-size: 11px; }
+.list-footer button { padding: 5px 0; border: 0; background: transparent; color: var(--secondary); font-size: 11px; }.list-footer button:hover { color: var(--blue); }
+.shortcut { margin: 20px 0 0; color: var(--tertiary); font-size: 11px; text-align: center; }.shortcut kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-right: 4px; border: 1px solid #dedee2; border-radius: 4px; background: #fff; color: var(--secondary); font-size: 10px; }
+.toast { position: fixed; right: 20px; bottom: 20px; padding: 11px 14px; border-radius: 9px; background: #1d1d1f; color: #fff; font-size: 12px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: .25s ease; }.toast.show { opacity: 1; transform: translateY(0); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+@media (max-width: 680px) { .app-shell { width: min(100% - 32px, 640px); } main { padding-top: 58px; } }
+@media (max-width: 480px) {
+  .app-shell { width: min(100% - 24px, 640px); }.topbar { height: 66px; } main { padding-top: 45px; }.intro { margin-bottom: 27px; }
+  .quick-add, .list-header { padding-left: 16px; padding-right: 16px; }.task-list { padding-left: 16px; padding-right: 16px; }.list-footer { padding-left: 16px; padding-right: 16px; }
+  .task-item { gap: 10px; }.task-actions { opacity: 1; }
+}
