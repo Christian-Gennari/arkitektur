@@ -4,11 +4,10 @@ using arkitektur.Models.Events;
 
 namespace arkitektur.Handlers;
 
-public class TodoCreatedHandler : IEventHandler<TodoCreated>
+public class TodoCreatedHandler(IActivityLogger logger) : IEventHandler<TodoCreated>
 {
-    public Task Handle(TodoCreated @event)
+    public async Task Handle(TodoCreated @event)
     {
-        Console.WriteLine($"Todo skapad: {@event.Todo.Title}");
-        return Task.CompletedTask;
+        await logger.LogAsync("CREATE", $"Todo {@event.Todo.Id} skapad: {@event.Todo.Title}");
     }
 }
