@@ -1,4 +1,4 @@
-import { completeTodo, createTodo, deleteTodo, getStatistics, getTodos } from "./api.js";
+import { completeTodo, createTodo, deleteTodo, getStatistics, getTodos, uncompleteTodo } from "./api.js";
 
 let tasks = [];
 let currentFilter = "all";
@@ -59,7 +59,7 @@ function render() {
       <div class="task-actions"><button class="delete-task" type="button" aria-label="Delete ${escapeHtml(task.title)}" title="Delete task">×</button></div>
     </article>`).join("") : '<div class="empty-state"><strong>Nothing here</strong><span>Add a task above and keep your day moving.</span></div>';
 
-  document.querySelectorAll(".task-check").forEach((button) => button.addEventListener("click", () => completeTask(button.closest(".task-item").dataset.id)));
+  document.querySelectorAll(".task-check").forEach((button) => button.addEventListener("click", () => toggleTask(button.closest(".task-item").dataset.id)));
   document.querySelectorAll(".delete-task").forEach((button) => button.addEventListener("click", () => removeTask(button.closest(".task-item").dataset.id)));
 
   const completed = tasks.filter((task) => task.completed).length;
@@ -67,16 +67,20 @@ function render() {
   document.querySelector("#progress-label").textContent = `${tasks.length - completed} open · ${completed} done`;
 }
 
-async function completeTask(id) {
+async function toggleTask(id) {
   const task = tasks.find((item) => String(item.id) === String(id));
-  if (!task || task.completed) return;
+  if (!task) return;
 
   try {
-    await completeTodo(id);
+    if (task.completed) {
+      await uncompleteTodo(id);
+    } else {
+      await completeTodo(id);
+    }
     await refresh();
-    showToast("Task completed");
+    showToast(task.completed ? "Task reopened" : "Task completed");
   } catch {
-    showToast("Could not complete task");
+    showToast("Could not update task");
   }
 }
 

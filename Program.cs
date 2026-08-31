@@ -83,6 +83,17 @@ app.MapPut(
     }
 );
 
+app.MapPut(
+    "/todos/{id:int}/uncomplete",
+    async (int id, TodoService service) =>
+    {
+        var success = await service.Uncomplete(id);
+        return success
+            ? Results.Ok($"Todo {id} markerades som ej klar!")
+            : Results.NotFound();
+    }
+);
+
 app.MapDelete(
     "/todos/{id:int}",
     async (int id, TodoService service) =>

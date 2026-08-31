@@ -70,6 +70,24 @@ public class TodoService(ITodoRepository repository, IEventPublisher eventPublis
         return true;
     }
 
+    public async Task<bool> Uncomplete(int id)
+    {
+        var todo = repository.GetById(id);
+        if (todo == null)
+        {
+            return false;
+        }
+        if (!todo.IsCompleted)
+        {
+            return true;
+        }
+
+        todo.IsCompleted = false;
+        repository.Update(todo);
+        await eventPublisher.Publish(new TodoUpdated(todo));
+        return true;
+    }
+
     public async Task<bool> Delete(int id)
     {
         var todo = repository.GetById(id);

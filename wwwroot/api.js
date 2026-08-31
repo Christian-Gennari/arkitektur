@@ -24,6 +24,10 @@ export function completeTodo(id) {
   return request(`/todos/${id}/complete`, { method: "PUT" });
 }
 
+export function uncompleteTodo(id) {
+  return request(`/todos/${id}/uncomplete`, { method: "PUT" });
+}
+
 export function deleteTodo(id) {
   return request(`/todos/${id}`, { method: "DELETE" });
 }

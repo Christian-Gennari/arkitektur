@@ -14,8 +14,10 @@ public class TodoUpdatedHandler(IActivityLogger logger, IStatisticsService stati
         }
 
         await logger.LogAsync(
-            "TODO_COMPLETED",
-            $"Todo markerad som klar | ID: {@event.Todo.Id} | Titel: \"{@event.Todo.Title}\" | Status: Klar"
+            @event.Todo.IsCompleted ? "TODO_COMPLETED" : "TODO_REOPENED",
+            @event.Todo.IsCompleted
+                ? $"Todo markerad som klar | ID: {@event.Todo.Id} | Titel: \"{@event.Todo.Title}\" | Status: Klar"
+                : $"Todo öppnad igen | ID: {@event.Todo.Id} | Titel: \"{@event.Todo.Title}\" | Status: Ej klar"
         );
     }
 }
