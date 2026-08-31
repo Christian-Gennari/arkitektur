@@ -395,6 +395,8 @@ MSBuild_Logs/
 # Visual Studio History (VSHistory) files
 .vshistory/
 
+*log.txt
+
 # BeatPulse healthcheck temp database
 healthchecksdb
 
