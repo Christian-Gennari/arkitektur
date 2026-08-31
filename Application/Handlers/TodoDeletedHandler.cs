@@ -9,6 +9,9 @@ public class TodoDeletedHandler(IActivityLogger logger, IStatisticsService stati
     public async Task Handle(TodoDeleted @event)
     {
         statistics.RecordDeleted();
-        await logger.LogAsync("DELETE", $"Todo raderad: {@event.Todo.Id} - {@event.Todo.Title}");
+        await logger.LogAsync(
+            "TODO_DELETED",
+            $"Todo raderad | ID: {@event.Todo.Id} | Titel: \"{@event.Todo.Title}\""
+        );
     }
 }

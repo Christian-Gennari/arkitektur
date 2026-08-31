@@ -10,6 +10,9 @@ public class TodoCreatedHandler(
     public async Task Handle(TodoCreated @event)
     {
         statistics.RecordCreated();
-        await logger.LogAsync("CREATE", $"Todo skapad: {@event.Todo.Id} - {@event.Todo.Title}");
+        await logger.LogAsync(
+            "TODO_CREATED",
+            $"Todo skapad | ID: {@event.Todo.Id} | Titel: \"{@event.Todo.Title}\" | Status: Ej klar"
+        );
     }
 }

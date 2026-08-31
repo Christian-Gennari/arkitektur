@@ -14,8 +14,8 @@ public class TodoUpdatedHandler(IActivityLogger logger, IStatisticsService stati
         }
 
         await logger.LogAsync(
-            "UPDATE",
-            $"Todo {@event.Todo.Id} uppdaterad: [{@event.Todo.Title}] status [{@event.Todo.IsCompleted}]"
+            "TODO_COMPLETED",
+            $"Todo markerad som klar | ID: {@event.Todo.Id} | Titel: \"{@event.Todo.Title}\" | Status: Klar"
         );
     }
 }
