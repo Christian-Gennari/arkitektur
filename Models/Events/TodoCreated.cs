@@ -1,4 +1,4 @@
 namespace arkitektur.Models.Events;
-using Shared;
+using arkitektur.Interfaces;
 
 public record TodoCreated(Todo Todo) : IEvent;

@@ -1,4 +1,4 @@
-namespace arkitektur.Models;
+namespace arkitektur.Interfaces;
 
 public interface IEventHandler
 {
