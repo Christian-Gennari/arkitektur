@@ -22,6 +22,8 @@ var bus = app.Services.GetRequiredService<EventBus>();
 var todoCreatedHandler = app.Services.GetRequiredService<TodoCreatedHandler>();
 bus.Subscribe<TodoCreated>(todoCreatedHandler);
 
+
+
 app.MapPost(
     "/todos",
     async (Todo todo, TodoService service) =>
