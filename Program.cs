@@ -58,7 +58,7 @@ app.MapPost(
             return Results.Created($"/todos/{created.Id}", created);
         }
         catch (ArgumentException ex)
-        {
+        { 
             return Results.BadRequest(ex.Message);
         }
     }
