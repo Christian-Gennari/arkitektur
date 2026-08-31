@@ -12,6 +12,8 @@ builder.Services.AddSingleton<EventBus>();
 builder.Services.AddSingleton<TodoRepository>();
 builder.Services.AddSingleton<IActivityLogger, FileActivityLogger>();
 builder.Services.AddSingleton<TodoCreatedHandler>();
+builder.Services.AddSingleton<TodoUpdatedHandler>();    
+builder.Services.AddSingleton<TodoDeletedHandler>();   
 builder.Services.AddSingleton<TodoService>();
 builder.Services.AddSingleton<IStatisticsService, StatisticsService>();
 
@@ -21,7 +23,11 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 var bus = app.Services.GetRequiredService<EventBus>();
 var todoCreatedHandler = app.Services.GetRequiredService<TodoCreatedHandler>();
+var todoUpdatedHandler = app.Services.GetRequiredService<TodoUpdatedHandler>();
+var todoDeletedHandler = app.Services.GetRequiredService<TodoDeletedHandler>();
 bus.Subscribe<TodoCreated>(todoCreatedHandler);
+bus.Subscribe<TodoUpdated>(todoUpdatedHandler);
+bus.Subscribe<TodoDeleted>(todoDeletedHandler);
 
 app.MapPost(
     "/todos",
