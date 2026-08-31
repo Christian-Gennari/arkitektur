@@ -13,6 +13,7 @@ builder.Services.AddSingleton<TodoRepository>();
 builder.Services.AddSingleton<IActivityLogger, FileActivityLogger>();
 builder.Services.AddSingleton<TodoCreatedHandler>();
 builder.Services.AddSingleton<TodoService>();
+builder.Services.AddSingleton<IStatisticsService, StatisticsService>();
 
 var app = builder.Build();
 
