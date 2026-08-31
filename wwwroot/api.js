@@ -8,30 +8,34 @@ async function request(url, options = {}) {
   return response.status === 204 ? null : response.json();
 }
 
-export function getTodos() {
-  return request("/todos");
+export function getShipments() {
+  return request("/shipments");
 }
 
-export function createTodo(title) {
-  return request("/todos", {
+export function registerShipment(recipient, destination) {
+  return request("/shipments", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ recipient, destination }),
   });
 }
 
-export function completeTodo(id) {
-  return request(`/todos/${id}/complete`, { method: "PUT" });
+export function dispatchShipment(id) {
+  return request(`/shipments/${id}/dispatch`, { method: "PUT" });
 }
 
-export function uncompleteTodo(id) {
-  return request(`/todos/${id}/uncomplete`, { method: "PUT" });
+export function deliverShipment(id) {
+  return request(`/shipments/${id}/deliver`, { method: "PUT" });
 }
 
-export function deleteTodo(id) {
-  return request(`/todos/${id}`, { method: "DELETE" });
+export function cancelShipment(id) {
+  return request(`/shipments/${id}/cancel`, { method: "PUT" });
 }
 
-export function getStatistics() {
-  return request("/statistics");
+export function getOperationsMetrics() {
+  return request("/operations/metrics");
+}
+
+export function getTracking(trackingNumber) {
+  return request(`/tracking/${encodeURIComponent(trackingNumber)}`);
 }

@@ -2,15 +2,15 @@ using arkitektur.Application.Interfaces;
 
 namespace arkitektur.Infrastructure.Logging;
 
-public sealed class FileActivityLogger(IHostEnvironment environment) : IActivityLogger
+public sealed class FilePostalAuditLog(IHostEnvironment environment) : IPostalAuditLog
 {
     private readonly SemaphoreSlim fileLock = new(1, 1);
-    private readonly string filePath = Path.Combine(environment.ContentRootPath, "log.txt");
+    private readonly string filePath = Path.Combine(environment.ContentRootPath, "postal-audit.log");
 
-    public async Task LogAsync(string activity, string message)
+    public async Task WriteAsync(string eventName, string message)
     {
         var safeMessage = message.Replace('\r', ' ').Replace('\n', ' ');
-        var line = $"{DateTimeOffset.UtcNow:O} | {activity} | {safeMessage}";
+        var line = $"{DateTimeOffset.UtcNow:O} | {eventName} | {safeMessage}";
 
         await fileLock.WaitAsync();
         try

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f5f5f7" />
-    <title>Tasks</title>
+    <title>NordPost · Event-driven parcel network</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,46 +16,108 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="/">Tasks</a>
+        <a class="brand" href="/" aria-label="NordPost home">
+          <span class="brand-mark" aria-hidden="true"></span>
+          NordPost
+        </a>
         <time id="current-date"></time>
       </header>
 
       <main>
         <section class="intro">
-          <p class="eyebrow">YOUR DAY</p>
-          <h1>Good morning, JARVIS.</h1>
-          <p class="subtitle">A clear mind starts with a clear list.</p>
+          <p class="eyebrow">PARCEL OPERATIONS NETWORK</p>
+          <h1>One shipment. Four services listening.</h1>
+          <p class="subtitle">Register a parcel, move it through delivery, and watch every domain event fan out in real time.</p>
+        </section>
+
+        <section class="eda-card" aria-labelledby="eda-heading">
+          <div class="eda-heading">
+            <div>
+              <p class="eyebrow">PUBLISH / SUBSCRIBE IN ACTION</p>
+              <h2 id="eda-heading">The command ends. Subscribers keep working.</h2>
+            </div>
+            <span class="connection-status is-connecting" id="event-connection">
+              <i aria-hidden="true"></i>
+              Connecting
+            </span>
+          </div>
+
+          <div class="sync-flow">
+            <div class="lane-label"><span>1</span><strong>Synchronous request</strong><small>You wait for this part</small></div>
+            <div class="sync-route">
+              <div class="flow-node is-command" id="flow-command">
+                <span class="flow-icon">✉</span>
+                <div><strong>Operator sends a command</strong><small>Register, dispatch, deliver, or cancel</small></div>
+              </div>
+              <div class="flow-arrow is-solid"><span>HTTP command</span><i>→</i></div>
+              <div class="flow-node" id="flow-producer">
+                <span class="flow-number">API</span>
+                <div><strong>Shipment API commits state</strong><small>Producer publishes a domain event</small></div>
+                <em>201 Created ↩</em>
+              </div>
+            </div>
+          </div>
+
+          <div class="async-boundary">
+            <span>ASYNC BOUNDARY</span>
+            <strong>The API response can return—the subscribers run outside the request</strong>
+          </div>
+
+          <div class="async-flow">
+            <div class="lane-label"><span>2</span><strong>Event-driven processing</strong><small>Independent, simulated service latency</small></div>
+            <div class="async-route">
+              <div class="flow-node is-queue" id="flow-queue">
+                <span class="flow-icon node-bag" aria-hidden="true"></span>
+                <div><strong>Event queue</strong><small>.NET Channel · FIFO · backpressure</small></div>
+                <code id="flow-event-name">DomainEvent</code>
+              </div>
+              <div class="flow-arrow is-dashed"><span>later</span><i>⇢</i></div>
+              <div class="flow-node" id="flow-dispatcher">
+                <span class="flow-icon node-sort" aria-hidden="true"></span>
+                <div><strong>Event dispatcher</strong><small>BackgroundService routes by event type</small></div>
+              </div>
+              <div class="flow-arrow is-split"><span>fan-out</span><i>⇢</i></div>
+              <div class="flow-consumers">
+                <div class="flow-node consumer-node" id="flow-tracking"><span>⌁</span><div><strong>Public tracking</strong><small>Projection · 350–900 ms</small></div></div>
+                <div class="flow-node consumer-node" id="flow-notifications"><span>✦</span><div><strong>Notifications</strong><small>External gateway · 1.4–2.8 s</small></div></div>
+                <div class="flow-node consumer-node" id="flow-metrics"><span>▥</span><div><strong>Operations metrics</strong><small>In-memory counter · 120–400 ms</small></div></div>
+                <div class="flow-node consumer-node" id="flow-audit"><span>≡</span><div><strong>Postal audit</strong><small>Local append · 40–180 ms</small></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-caption" id="flow-caption" aria-live="polite">
+            <i></i><span><strong>Ready.</strong> Register a shipment below to follow one event through the architecture.</span>
+          </div>
         </section>
 
         <section class="statistics-card" aria-labelledby="statistics-heading">
           <div class="statistics-heading">
-            <p class="eyebrow" id="statistics-heading">ACTIVITY STATISTICS</p>
-            <span>All activity this session</span>
+            <p class="eyebrow" id="statistics-heading">OPERATIONS READ MODEL</p>
+            <span>Eventually consistent · updated only by a subscriber</span>
           </div>
           <div class="statistics-grid">
-            <div class="stat"><strong id="created-stat">0</strong><span>Created</span></div>
-            <div class="stat"><strong id="completed-stat">0</strong><span>Completed</span></div>
-            <div class="stat"><strong id="deleted-stat">0</strong><span>Deleted</span></div>
+            <div class="stat"><strong id="registered-stat">0</strong><span>Registered</span></div>
+            <div class="stat"><strong id="dispatched-stat">0</strong><span>Dispatched</span></div>
+            <div class="stat"><strong id="delivered-stat">0</strong><span>Delivered</span></div>
+            <div class="stat"><strong id="cancelled-stat">0</strong><span>Cancelled</span></div>
           </div>
         </section>
 
         <div class="workspace-grid">
-          <section class="task-card" aria-labelledby="tasks-heading">
-            <h2 id="tasks-heading" class="visually-hidden">Tasks</h2>
-            <form class="quick-add" id="quick-add">
-              <input
-                id="task-title"
-                type="text"
-                placeholder="Add a task"
-                maxlength="120"
-                autocomplete="off"
-                required
-              />
-              <button type="submit" aria-label="Add task">+</button>
+          <section class="shipment-card" aria-labelledby="shipments-heading">
+            <div class="shipment-card-heading">
+              <p class="eyebrow">COMMAND SIDE</p>
+              <h2 id="shipments-heading">Register a shipment</h2>
+            </div>
+            <form class="shipment-form" id="shipment-form">
+              <label><span>Recipient</span><input id="shipment-recipient" type="text" placeholder="e.g. Ada Lovelace" maxlength="80" autocomplete="off" required /></label>
+              <label><span>Destination</span><input id="shipment-destination" type="text" placeholder="e.g. Stockholm 111 22" maxlength="120" autocomplete="off" required /></label>
+              <button type="submit">Register parcel <span aria-hidden="true">→</span></button>
             </form>
 
             <div class="list-header">
-              <div class="filters" role="tablist" aria-label="Task filters">
+              <div class="filters" role="tablist" aria-label="Shipment filters">
                 <button
                   class="filter active"
                   type="button"
@@ -68,69 +130,60 @@
                 <button
                   class="filter"
                   type="button"
-                  data-filter="open"
+                  data-filter="Registered"
                   role="tab"
                   aria-selected="false"
                 >
-                  Open
+                  Registered
                 </button>
                 <button
                   class="filter"
                   type="button"
-                  data-filter="done"
+                  data-filter="InTransit"
                   role="tab"
                   aria-selected="false"
                 >
-                  Done
+                  In transit
+                </button>
+                <button
+                  class="filter"
+                  type="button"
+                  data-filter="Delivered"
+                  role="tab"
+                  aria-selected="false"
+                >
+                  Delivered
                 </button>
               </div>
-              <span class="task-count" id="task-count">0 tasks</span>
+              <span class="shipment-count" id="shipment-count">0 shipments</span>
             </div>
 
-            <div class="task-list" id="task-list" aria-live="polite"></div>
+            <div class="shipment-list" id="shipment-list" aria-live="polite"></div>
 
             <div class="list-footer">
-              <span id="progress-label">0 open</span>
-              <button id="clear-completed" type="button">Clear completed</button>
+              <span id="shipment-summary">No shipments registered</span>
             </div>
           </section>
 
           <aside class="event-card" aria-labelledby="event-monitor-heading">
             <div class="event-heading">
               <div>
-                <p class="eyebrow">EVENT-DRIVEN FLOW</p>
-                <h2 id="event-monitor-heading">Event Monitor</h2>
-              </div>
-              <span class="connection-status is-connecting" id="event-connection">
-                <i aria-hidden="true"></i>
-                Connecting
-              </span>
-            </div>
-
-            <div class="event-pipeline" aria-label="Event processing architecture">
-              <div class="pipeline-node"><span>1</span><div><strong>Todo API</strong><small>Producer</small></div></div>
-              <i class="pipeline-arrow" aria-hidden="true">↓</i>
-              <div class="pipeline-node is-queue"><span>2</span><div><strong>.NET Channel</strong><small>Async queue · 1s demo delay</small></div></div>
-              <i class="pipeline-arrow" aria-hidden="true">↓</i>
-              <div class="pipeline-node"><span>3</span><div><strong>Dispatcher</strong><small>Background service</small></div></div>
-              <i class="pipeline-arrow" aria-hidden="true">↓</i>
-              <div class="consumer-branches">
-                <span>Statistics</span>
-                <span>Activity log</span>
+                <p class="eyebrow">EVENT TRACE</p>
+                <h2 id="event-monitor-heading">Published domain events</h2>
               </div>
             </div>
 
             <div class="event-list-heading">
-              <span>Live events</span>
+              <span>Tracking events</span>
               <button id="clear-events" type="button">Clear</button>
             </div>
             <div class="event-list" id="event-list" aria-live="polite">
-              <div class="event-empty"><strong>Waiting for an event</strong><span>Create or update a task to see the pipeline.</span></div>
+              <div class="event-empty"><strong>No events published</strong><span>Register a shipment to start the event stream.</span></div>
             </div>
           </aside>
         </div>
 
-        <p class="shortcut"><kbd>N</kbd> to add a task</p>
+        <p class="shortcut"><kbd>N</kbd> to register a new shipment</p>
       </main>
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

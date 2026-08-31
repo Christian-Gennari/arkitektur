@@ -1,108 +1,75 @@
-# Presentation: Event-driven Architecture
+# Presentation: NordPost och Event-driven Architecture
 
-Det här är ett förslag på en presentation på ungefär 3–5 minuter. Starta projektet med
-`dotnet run`, öppna webbadressen som visas i terminalen och ha gärna
-`Infrastructure/Events/EventBus.cs` redo i en separat flik.
+Förslag på en presentation på 3–5 minuter. Kör `dotnet run` i Development-miljö och
+öppna adressen som visas i terminalen.
 
-## Innan presentationen
+## 1. Verksamhetsproblemet
 
-1. Kontrollera att **Event Monitor** visar `Live`.
-2. Kontrollera att todo-listan och statistiken börjar på noll.
-3. Använd Development-miljön. Där finns en avsiktlig fördröjning på en sekund som gör
-   det asynkrona flödet synligt.
-4. Skapa inga test-events precis före presentationen. Eventhistoriken finns bara under
-   den aktuella körningen och försvinner när programmet startas om.
+> När en paketoperatör registrerar eller levererar en försändelse måste flera system
+> reagera: publik spårning, kundnotifieringar, verksamhetsstatistik och revision. Om
+> ShipmentService anropar alla direkt blir den hårt kopplad till varje system.
 
-## Manus
+Visa de fyra subscribers i arkitekturkortet.
 
-### 1. Problemet
+> I NordPost publicerar producenten i stället ett domänevent om vad som redan har hänt.
+> Subscribers väljer själva vilka events de reagerar på och känner inte till varandra.
 
-> I ett vanligt request/response-flöde anropar en komponent nästa komponent direkt och
-> väntar på resultatet. Det fungerar bra för enkla operationer, men producenten blir
-> kopplad till alla sidoeffekter som loggning, statistik och notifieringar.
+## 2. Registrera en försändelse
 
-> I vår första version hade vi eventnamn och handlers, men EventBus anropade varje
-> handler direkt och TodoService väntade tills allt var klart. Det liknade publish/
-> subscribe, men demonstrerade inte asynkron eventbearbetning eller eventual consistency.
+Registrera exempelvis mottagaren **Ada Lovelace** med destination **Stockholm 111 22**.
 
-### 2. Visa arkitekturen
+> HTTP-delen är synkron: API:et validerar och sparar försändelsen. När
+> ShipmentRegistered accepterats av kön kan API:et svara 201. Försändelsen syns direkt,
+> men operationsräknaren och publik tracking kan fortfarande ligga efter.
 
-Peka på flödet i **Event Monitor**.
+Peka på den markerade asynkrona gränsen och eventet i Channel-kön.
 
-> HTTP-API:et är producenten. Det sparar todo:n och publicerar ett oföränderligt event
-> till en Channel. En BackgroundService konsumerar kön och skickar eventet vidare till
-> två oberoende consumers: Statistics och Activity log. TodoService känner inte till
-> någon av dem.
+> Det är eventual consistency. Huvudoperationen är klar innan subscribers har byggt
+> sina egna read models. Development-konfigurationens simulerade latens gör detta
+> synligt; den är inte ett krav i arkitekturen.
 
-### 3. Skapa en todo
+## 3. Visa fan-out
 
-Skapa todo:n **Förbered EDA-presentation**.
+När eventet lämnar kön, peka på de fyra subscribers som lyser upp.
 
-> Todo:n visas direkt eftersom API-requesten redan är klar. Samtidigt står TodoCreated
-> som Queued i monitorn och statistiken har ännu inte uppdaterats. Det här är eventual
-> consistency: huvudoperationen är färdig före sidoeffekterna.
+> BackgroundService hämtar eventet och dispatchern skickar samma oföränderliga snapshot
+> till fyra oberoende mottagare. De startar nästan samtidigt men avslutas vid olika
+> tidpunkter: audit och metrics är snabba, tracking tar lite längre tid och ett externt
+> notifieringsgateway är långsammast. Tiderna visas per subscriber i Event Monitor.
 
-Vänta tills eventet byter till **Handled**.
+## 4. Fortsätt livscykeln
 
-> Efter en sekund tar dispatchern eventet. Statistics och Activity log behandlar samma
-> event oberoende av varandra. Först därefter ändras statistiken. Fördröjningen är endast
-> en inställning för demon; i normal konfiguration är den noll.
+Klicka **Dispatch** och därefter **Mark delivered**.
 
-### 4. Visa lös koppling och återanvändning
+> Varje giltig domänövergång producerar ett specifikt event: ShipmentDispatched och
+> ShipmentDelivered. En ogiltig övergång ger 409 och publicerar inget event. Samma
+> pipeline och samma subscribers återanvänds utan specialkoppling i producenten.
 
-Markera todo:n som klar och radera den.
+## 5. Avgränsningar
 
-> Samma pipeline återanvänds för TodoUpdated och TodoDeleted. Vi kan lägga till en ny
-> consumer, till exempel notifieringar, utan att ändra TodoService eller de befintliga
-> consumers. Varje event har dessutom event-ID, tidpunkt och correlation ID så att vi
-> kan följa det genom systemet.
-
-Visa kort `TodoService` och därefter `EventBus`.
-
-> Publish väntar bara på plats i kön. BackgroundService läser kön i FIFO-ordning och
-> kör subscribers. Om en consumer misslyckas visas det i monitorn, men den andra får
-> fortfarande behandla eventet.
-
-### 5. Avsluta med en ärlig avgränsning
-
-> Det här är en hybridarkitektur: webbläsaren använder fortfarande HTTP request/
-> response för commands och queries, medan interna reaktioner är eventdrivna och
-> asynkrona. Kön ligger i samma process och är inte beständig. Därför visar lösningen
-> EDA-principerna tydligt, men den är inte ett distribuerat produktionssystem.
-
-> Nästa steg vore att ersätta Channel med RabbitMQ eller Kafka och flytta consumers
-> till separata processer. Då behövs även retries, dead-letter queue, idempotens och
-> beständig lagring.
+> Detta är lokal EDA. Channel-kön och subscribers kör i samma process och data ligger i
+> minnet. Vid omstart kan köade events försvinna, och demon saknar retries och dead-letter
+> queue. En produktionsversion skulle använda en beständig broker och Outbox Pattern,
+> idempotenta consumers samt distribuerad tracing.
 
 ## Vanliga frågor
 
-**Är det här verkligen EDA utan RabbitMQ?**
+**Är det EDA utan Kafka eller RabbitMQ?**
 
-Ja. Producenten publicerar events utan att känna till mottagarna, och mottagarna reagerar
-asynkront. En extern broker behövs för distribution och bättre hållbarhet, men är inte
-ett krav för själva arkitekturstilen. Var tydlig med att detta är lokal EDA.
+Ja. Producenten publicerar utan att känna sina mottagare och bearbetningen sker
+asynkront. En extern broker behövs för robust distribution, inte för själva principen.
 
-**Varför är API:et fortfarande REST?**
+**Varför används fortfarande HTTP?**
 
-EDA behöver inte ersätta alla kommunikationssätt. Här passar request/response för
-användarens command och query, medan events passar de oberoende sidoeffekterna.
+HTTP passar användarens commands och queries. Events används där flera oberoende system
+ska reagera efter att domänoperationen är genomförd.
 
-**Vad händer om kön är full?**
+**Vad händer om en subscriber misslyckas?**
 
-Den är begränsad till 100 events. `Publish` väntar då på ledig plats, vilket ger
-backpressure i stället för att tappa event tyst.
+Felet markeras i Event Monitor, medan övriga subscribers fortsätter. Demon gör inga
+automatiska retries.
 
-**Vad händer om en consumer kraschar?**
+**Varför finns både shipment-listan och public tracking?**
 
-Felet loggas och visas i Event Monitor. Övriga consumers fortsätter. Den här demon har
-inga retries eller dead-letter queue.
-
-**Vad händer om hela applikationen kraschar?**
-
-Events som bara finns i Channel försvinner. En produktionsvariant behöver en beständig
-broker och ofta Outbox Pattern för att undvika glappet mellan datalagring och publicering.
-
-**Varför finns en fördröjning på en sekund?**
-
-För att publiken ska hinna se köläget och eventual consistency. Den styrs av
-`EventProcessing:DemoDelayMilliseconds`, är `1000` i Development och `0` annars.
+Shipment-listan visar det primära command-tillståndet direkt. Public tracking är en
+separat subscriber-byggd read model och kan därför tillfälligt ligga efter.

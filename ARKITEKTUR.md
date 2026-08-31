@@ -1,177 +1,134 @@
-# Event-driven Architecture
+# NordPost – Event-driven Architecture
 
 ## Vad visar projektet?
 
-Projektet är en todo-app som använder en lokal, asynkron Event-driven Architecture
-(EDA) för sidoeffekter. Användarens commands och queries går via HTTP, men efter en
-domänförändring publicerar applikationen ett event till en kö. Oberoende consumers
-uppdaterar sedan statistik och aktivitetslogg utan att `TodoService` anropar dem direkt.
+NordPost är en förenklad paketplattform inspirerad av verkliga postoperatörer. En
+operatör kan registrera, skicka, leverera och avbryta försändelser. Varje genomförd
+domänändring publicerar ett event som flera fristående tjänster prenumererar på.
 
-Det är därför en **hybridarkitektur**:
+Lösningen är en **hybridarkitektur**:
 
-- HTTP request/response används mellan webbläsaren och API:et.
-- Asynkrona events används för interna reaktioner på förändringar.
-- Kön och alla consumers kör i samma process.
+- webbläsaren skickar commands och queries via HTTP;
+- `ShipmentService` ändrar försändelsens primära tillstånd;
+- oföränderliga domänevents läggs i en begränsad `.NET Channel`;
+- en `BackgroundService` distribuerar eventet till alla registrerade subscribers;
+- Server-Sent Events visar flödet i gränssnittet, men transporterar inte events till
+  domänens subscribers.
 
-Lösningen visar EDA-principer och eventual consistency, men är inte ett distribuerat
-produktionssystem. Den använder ingen extern broker som RabbitMQ eller Kafka.
+Kön och alla subscribers kör i samma process. Projektet demonstrerar EDA, publish/
+subscribe och eventual consistency, men är inte ett distribuerat produktionssystem.
 
-## Vilket problem löser arkitekturen?
+## Domän och livscykel
 
-När en todo skapas, uppdateras eller raderas behöver flera oberoende saker reagera:
+En `Shipment` har spårningsnummer, mottagare, destination och status. Tillåtna
+övergångar är:
 
-- aktivitetsstatistik ska uppdateras;
-- en loggrad ska skrivas;
-- framtida funktioner, exempelvis notifieringar, kan vilja reagera på samma händelse.
-
-Utan events måste `TodoService` känna till och anropa alla dessa funktioner. Med
-publish/subscribe behöver servicen bara meddela vad som redan har hänt. Producenten
-behöver inte känna till antalet consumers, deras implementation eller hur lång tid de
-tar.
-
-## Översikt
-
-```mermaid
-flowchart LR
-    Browser[Webbläsare] -->|HTTP command| API[Todo API]
-    API --> Service[TodoService]
-    Service --> Repository[(Todo repository)]
-    Service -->|TodoCreated / Updated / Deleted| Queue[Bounded .NET Channel]
-    Queue --> Dispatcher[EventBus BackgroundService]
-    Dispatcher --> Statistics[Statistics consumer]
-    Dispatcher --> Activity[Activity log consumer]
-    Dispatcher --> Monitor[Event Monitor]
-    Monitor -->|Server-Sent Events| Browser
+```text
+Registered → InTransit → Delivered
+     └─────────┴──────→ Cancelled
 ```
 
-### Producent
+API:et erbjuder följande commands:
 
-`TodoService` utför domänoperationen och publicerar därefter ett event. Exempel:
+- `POST /shipments` – registrera en försändelse;
+- `PUT /shipments/{id}/dispatch` – skicka försändelsen;
+- `PUT /shipments/{id}/deliver` – markera den som levererad;
+- `PUT /shipments/{id}/cancel` – avbryt en ännu ej levererad försändelse.
 
-```csharp
-repository.Add(todo);
-await eventPublisher.Publish(new TodoCreated(todo.Id, todo.Title));
-```
+Ogiltiga statusövergångar svarar med `409 Conflict` och publicerar inget event.
 
-`Publish` väntar bara tills eventet har accepterats av kön. Den väntar inte på att
-statistik eller loggning ska slutföras.
+## Publicerade events
 
-### Events
+- `ShipmentRegistered`
+- `ShipmentDispatched`
+- `ShipmentDelivered`
+- `ShipmentCancelled`
 
-`TodoCreated`, `TodoUpdated` och `TodoDeleted` är oföränderliga snapshots. De innehåller
-bara information som var sann när händelsen inträffade, inte en muterbar referens till
-domänobjektet. Alla events har även:
+Eventnamnen beskriver något som redan har hänt. Varje event är en oföränderlig
+snapshot med försändelse-ID, spårningsnummer, mottagare och destination samt:
 
-- `EventId` för att identifiera det enskilda eventet;
-- `OccurredAt` för när domänhändelsen skapades;
-- `CorrelationId` för att koppla eventet till den inkommande operationen.
+- `EventId` – identifierar eventinstansen;
+- `OccurredAt` – när händelsen skapades;
+- `CorrelationId` – kopplar eventet till den inkommande operationen.
 
-Namnen beskriver något som redan har hänt. De är events, inte instruktioner som
-`CreateTodo` eller `WriteLog`.
+Producenten känner bara till `IEventPublisher`. Den vet inte vilka subscribers som
+finns eller hur lång tid de behöver.
 
-### Eventkö och dispatcher
+## Subscribers
 
-`EventBus` har två roller i den lokala demonstrationen:
+Fyra oberoende tjänster prenumererar på samtliga försändelseevents:
 
-1. Den tar emot events och skriver dem till en begränsad `.NET Channel`.
-2. Som `BackgroundService` läser den kön och distribuerar events till subscribers.
+1. **Public tracking** bygger en separat, kundorienterad tracking-projektion som kan
+   läsas via `GET /tracking/{trackingNumber}`.
+2. **Customer notifications** reagerar med rätt mottagarmeddelande för varje status.
+3. **Operations metrics** uppdaterar räknare för registrerade, skickade, levererade
+   och avbrutna försändelser.
+4. **Postal audit** skriver en beständig revisionsrad till `postal-audit.log`.
 
-Kön har kapacitet för 100 events och använder backpressure: om kön blir full väntar
-producenten på ledig plats. En enda reader behandlar events i FIFO-ordning. Consumers
-för samma event startas oberoende och inväntas tillsammans innan nästa event tas.
+De känner inte till varandra. En ny subscriber kan registreras utan att
+`ShipmentService` ändras. Alla fyra startas oberoende och inväntas tillsammans. Om en
+subscriber misslyckas loggas felet och övriga får fortsätta.
 
-### Consumers
+## Dataflöde vid registrering
 
-Det finns två logiska consumers som prenumererar på alla tre eventtyper:
+1. Webbläsaren skickar `POST /shipments`.
+2. `ShipmentService` validerar och sparar försändelsen i repositoryt.
+3. Servicen publicerar `ShipmentRegistered`.
+4. `EventBus.Publish` accepterar eventet i Channel-kön.
+5. HTTP-anropet kan svara `201 Created`; försändelsen syns direkt i command-modellen.
+6. Efter den avsiktliga demofördröjningen hämtar `EventBus` eventet.
+7. Dispatchern startar tracking, notifieringar, metrics och audit parallellt.
+8. Tracking-projektionen och operationsräknarna blir uppdaterade först nu.
+9. Event Monitor visar varje steg via SSE.
 
-- `StatisticsEventHandler` uppdaterar räknarna.
-- `ActivityLogEventHandler` skriver till `log.txt`.
+Steg 5–8 demonstrerar **eventual consistency**: det primära försändelsetillståndet kan
+vara nyare än subscriber-tjänsternas read models under en kort period.
 
-De känner inte till varandra. Om en consumer kastar ett exception loggas felet och
-markeras i Event Monitor, medan övriga consumers får fortsätta.
+## Kö och leverans
 
-### Event Monitor
+Channel-kön har kapacitet 100 och använder backpressure. Om kön är full väntar
+producenten på ledig plats i stället för att tappa eventet. En reader behandlar events
+i FIFO-ordning. `EventProcessing:DemoDelayMilliseconds` är `500` i Development för
+att kön ska synas i demon; standardvärdet är `0`.
 
-`EventMonitor` sparar de senaste 100 spårningsposterna i minnet. Endpointen
-`GET /events/stream` strömmar dem till webbläsaren med Server-Sent Events (SSE).
-Webbläsaren grupperar posterna efter event-ID och visar bland annat:
+### Realistisk subscriber-simulering
 
-- `queued`;
-- `processing`;
-- `consumer-started`;
-- `consumer-completed` eller `consumer-failed`;
-- `completed` eller `completed-with-errors`.
+Subscribers startar från samma fan-out men tar olika lång tid, precis som separata
+system med olika typer av I/O. Development-konfigurationen väljer en ny slumpmässig
+latens inom respektive intervall för varje event:
 
-SSE-flödet är observability för demon och inte själva eventkön. Consumers tar sina
-events från Channel, inte från webbläsarströmmen.
+| Subscriber | Simulerat arbete | Latens |
+|---|---|---:|
+| Postal audit | lokal append | 40–180 ms |
+| Operations metrics | snabb räknaruppdatering | 120–400 ms |
+| Public tracking | uppdatering av read model | 350–900 ms |
+| Customer notifications | externt meddelandegateway | 1 400–2 800 ms |
 
-## Dataflöde när en todo skapas
+Intervallen styrs av `SubscriberSimulation` i `appsettings.Development.json`. De är
+skalade för en presentation och representerar relativa skillnader, inte verkliga SLA:er.
+Utanför Development är alla simulerade delays noll. Event Monitor mäter och visar den
+faktiska tiden för varje subscriber.
 
-1. Webbläsaren skickar `POST /todos`.
-2. `TodoService` validerar och sparar todo:n i repositoryt.
-3. Servicen skapar ett oföränderligt `TodoCreated` och publicerar det.
-4. Eventet läggs i Channel och API:et kan svara `201 Created`.
-5. Webbläsaren kan redan visa todo:n, medan statistiken fortfarande är oförändrad.
-6. `EventBus` hämtar eventet efter den Development-konfigurerade demofördröjningen.
-7. Statistik- och loggconsumers behandlar eventet oberoende.
-8. Event Monitor visar varje steg via SSE.
-9. När eventet är färdigbehandlat hämtar frontend aktuell statistik.
+## Begränsningar
 
-Steg 5 visar **eventual consistency**: todo-datan och statistiken kan under en kort tid
-visa olika versioner av systemets tillstånd.
+- kön är minnesbaserad och events försvinner vid omstart;
+- det finns inga retries eller dead-letter queue;
+- leveransen är i praktiken at-most-once;
+- repository, tracking-projektion, metrics och eventhistorik ligger i minnet;
+- ändring av domäntillstånd och publicering är inte en atomisk transaktion;
+- API, broker och subscribers kan inte skalas separat.
 
-## Varför finns en demofördröjning?
+En produktionsvariant skulle använda exempelvis Kafka, RabbitMQ eller Azure Service
+Bus, ett Outbox Pattern, idempotenta consumers, retries, dead-letter queue,
+kontraktsversionering och distribuerad tracing.
 
-Asynkron bearbetning går vanligtvis så snabbt lokalt att köläget knappt syns. Därför är
-`EventProcessing:DemoDelayMilliseconds` satt till `1000` i
-`appsettings.Development.json`. Standardvärdet i `appsettings.json` är `0`.
-Fördröjningen är en visualiseringsteknik, inte ett krav i arkitekturen.
+## Mönster och principer
 
-## Fel, leverans och avgränsningar
+- **Publish/subscribe:** ett event distribueras till flera subscribers.
+- **Domain events:** kontrakten uttrycker faktiska logistikhändelser.
+- **Eventual consistency:** tracking och metrics uppdateras asynkront.
+- **Lös koppling:** producenten känner inte sina mottagare.
+- **CQRS-liknande projektion:** public tracking är en separat eventdriven read model.
+- **Dependency Injection:** abstraktioner kopplar ihop implementationerna i `Program.cs`.
 
-Lösningen gör medvetna förenklingar:
-
-- **Icke-beständig kö:** events i Channel försvinner om processen avslutas.
-- **At-most-once i praktiken:** det finns inga automatiska retries.
-- **Ingen dead-letter queue:** misslyckade events visas och loggas men köas inte om.
-- **Ingen distribuerad skalning:** API, kö och consumers delar process och minne.
-- **Möjligt dual-write-glapp:** repositoryt kan uppdateras precis innan publicering
-  misslyckas. En produktionslösning skulle kunna använda Outbox Pattern.
-- **Minnesbaserad data:** todos, statistik och eventhistorik nollställs vid omstart.
-
-Det här är viktigt att säga öppet. En extern broker definierar inte ensam EDA, men den
-behövs ofta för beständighet, distribution och mer robust leverans.
-
-## Designmönster och principer
-
-- **Publish/subscribe:** en producent publicerar och flera subscribers reagerar.
-- **Observer:** registreringen av handlers liknar Observer pattern, men leveransen sker
-  asynkront genom en kö.
-- **Domain events:** eventnamnen beskriver relevanta förändringar i todo-domänen.
-- **Dependency Injection:** producenten beror på `IEventPublisher` och consumers på
-  små interfaces för sina sidoeffekter.
-- **Eventual consistency:** read models och sidoeffekter uppdateras efter huvudoperationen.
-- **Lös koppling:** en ny consumer kan registreras utan ändring i `TodoService`.
-
-## Vägen till en distribuerad version
-
-För en större produktionslösning kan Channel ersättas av RabbitMQ, Azure Service Bus
-eller Kafka och consumers flyttas till separata processer. Då behöver lösningen även:
-
-- beständig eventlagring och Outbox Pattern;
-- retry-policy och dead-letter queue;
-- idempotenta consumers som tål dubbletter;
-- kontraktsversionering för events;
-- autentisering och åtkomstkontroll;
-- metrics, distribuerad tracing och larm.
-
-Producentens centrala kontrakt kan ändå vara detsamma: den publicerar vad som har hänt
-utan att känna till vem som reagerar.
-
-## Sammanfattning
-
-Projektet demonstrerar nu skillnaden mellan att bara använda eventliknande metodanrop
-och att faktiskt behandla events asynkront. API:et avslutar huvudoperationen efter att
-eventet köats, consumers reagerar oberoende, statistiken blir eventually consistent och
-hela flödet kan följas live. Samtidigt är implementationens lokala och icke-beständiga
-begränsningar tydligt dokumenterade.
+![Arkitekturöversikt för NordPosts eventdrivna försändelseflöde](docs/architecture-overview.svg)
