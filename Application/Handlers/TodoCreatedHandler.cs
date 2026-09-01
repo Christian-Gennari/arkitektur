@@ -9,10 +9,17 @@ public class TodoCreatedHandler(
 {
     public async Task Handle(TodoCreated @event)
     {
+        Console.WriteLine($"[HANDLER] TodoCreatedHandler started for Todo {@event.Todo.Id}");
+
+        // Deliberately slow handler so the queue's asynchronous behavior is easy to see.
+        await Task.Delay(TimeSpan.FromSeconds(3));
+
         statistics.RecordCreated();
         await logger.LogAsync(
             "TODO_CREATED",
             $"Todo skapad | ID: {@event.Todo.Id} | Titel: \"{@event.Todo.Title}\" | Status: Ej klar"
         );
+
+        Console.WriteLine($"[HANDLER] TodoCreatedHandler finished for Todo {@event.Todo.Id}");
     }
 }
