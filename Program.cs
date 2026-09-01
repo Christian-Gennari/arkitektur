@@ -123,4 +123,22 @@ app.MapGet(
     }
 );
 
+app.MapGet(
+    "/event-queue",
+    (EventQueue queue) =>
+    {
+        return Results.Ok(
+            queue.GetRecentActivity().Select(item => new
+            {
+                item.Id,
+                item.EventType,
+                Status = item.State.ToString(),
+                item.QueuedAt,
+                item.StartedAt,
+                item.CompletedAt,
+            })
+        );
+    }
+);
+
 app.Run();
