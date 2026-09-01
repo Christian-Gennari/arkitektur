@@ -35,3 +35,7 @@ export function deleteTodo(id) {
 export function getStatistics() {
   return request("/statistics");
 }
+
+export function getEventQueue() {
+  return request("/event-queue");
+}
