@@ -10,8 +10,11 @@ using arkitektur.Infrastructure.Statistics;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSingleton<EventQueue>();
 builder.Services.AddSingleton<EventBus>();
 builder.Services.AddSingleton<IEventPublisher>(services =>
+    services.GetRequiredService<EventBus>());
+builder.Services.AddHostedService(services =>
     services.GetRequiredService<EventBus>());
 builder.Services.AddSingleton<ITodoRepository, InMemoryTodoRepository>();
 builder.Services.AddSingleton<IActivityLogger, FileActivityLogger>();
