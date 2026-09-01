@@ -34,6 +34,34 @@ h1 { margin: 0; font-size: clamp(30px, 5vw, 42px); font-weight: 600; letter-spac
 .statistics-heading { min-width: 160px; }.statistics-heading .eyebrow { margin: 0 0 5px; }.statistics-heading > span { color: var(--secondary); font-size: 11px; }
 .statistics-grid { display: flex; gap: 28px; }.stat { display: grid; gap: 3px; min-width: 58px; }.stat strong { font-size: 21px; font-weight: 600; }.stat span { color: var(--secondary); font-size: 11px; }
 
+.queue-card { margin-bottom: 18px; overflow: hidden; border: 1px solid rgba(0, 0, 0, .06); border-radius: 18px; background: var(--card); box-shadow: 0 10px 35px rgba(0, 0, 0, .04); }
+.queue-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 17px 22px; border-bottom: 1px solid var(--line); }
+.queue-heading .eyebrow { margin: 0 0 5px; }
+.queue-heading > div > span { color: var(--secondary); font-size: 11px; }
+.queue-live { display: inline-flex; align-items: center; gap: 6px; color: var(--secondary); font-size: 10px; font-weight: 500; }
+.queue-live i { width: 6px; height: 6px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 3px rgba(52, 199, 89, .12); }
+.queue-list { max-height: 250px; overflow-y: auto; }
+.queue-empty { padding: 22px; color: var(--secondary); font-size: 12px; text-align: center; }
+.queue-item { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 58px; padding: 10px 22px; border-bottom: 1px solid var(--line); }
+.queue-item:last-child { border-bottom: 0; }
+.queue-event { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.queue-event > div { display: grid; gap: 3px; min-width: 0; }
+.queue-event strong { overflow: hidden; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.queue-event span { color: var(--tertiary); font-size: 10px; }
+.queue-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--tertiary); }
+.queue-dot.queued { background: #ff9f0a; }
+.queue-dot.processing { background: var(--blue); box-shadow: 0 0 0 4px rgba(0, 113, 227, .1); animation: queue-pulse 1s ease-in-out infinite; }
+.queue-dot.completed { background: #34c759; }
+.queue-dot.failed { background: #ff3b30; }
+.queue-state { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 125px; }
+.queue-status { padding: 4px 7px; border-radius: 6px; background: #f1f1f3; color: var(--secondary); font-size: 10px; font-weight: 500; }
+.queue-status.queued { background: #fff4df; color: #9a6100; }
+.queue-status.processing { background: var(--blue-soft); color: var(--blue); }
+.queue-status.completed { background: #eaf8ed; color: #248a3d; }
+.queue-status.failed { background: #fff0ef; color: #d70015; }
+.queue-duration { min-width: 37px; color: var(--secondary); font-variant-numeric: tabular-nums; font-size: 10px; text-align: right; }
+@keyframes queue-pulse { 50% { opacity: .45; } }
+
 .task-card { overflow: hidden; border: 1px solid rgba(0, 0, 0, .06); border-radius: 18px; background: var(--card); box-shadow: 0 10px 35px rgba(0, 0, 0, .05); }
 .quick-add { display: flex; align-items: center; gap: 12px; padding: 20px 22px; border-bottom: 1px solid var(--line); }
 .quick-add input { width: 100%; min-width: 0; height: 34px; padding: 0; border: 0; outline: 0; color: var(--text); font-size: 15px; }
@@ -76,6 +104,7 @@ h1 { margin: 0; font-size: clamp(30px, 5vw, 42px); font-weight: 600; letter-spac
 @media (max-width: 480px) {
   .app-shell { width: min(100% - 24px, 640px); }.topbar { height: 66px; } main { padding-top: 45px; }.intro { margin-bottom: 27px; }
   .statistics-card { display: block; }.statistics-grid { justify-content: space-between; margin-top: 16px; }
+  .queue-heading, .queue-item { padding-left: 16px; padding-right: 16px; }.queue-heading > div > span { display: none; }.queue-state { min-width: 112px; }
   .quick-add, .list-header { padding-left: 16px; padding-right: 16px; }.task-list { padding-left: 16px; padding-right: 16px; }.list-footer { padding-left: 16px; padding-right: 16px; }
   .task-item { gap: 10px; }.task-actions { opacity: 1; }
 }
