@@ -24,6 +24,7 @@ public class EventBus(EventQueue queue) : BackgroundService, IEventPublisher
     public async Task Publish<TEvent>(TEvent @event) where TEvent : IEvent
     {
         var queuedEvent = new QueuedEvent(
+            Guid.NewGuid(),
             @event,
             () => Dispatch(@event)
         );
@@ -36,14 +37,17 @@ public class EventBus(EventQueue queue) : BackgroundService, IEventPublisher
     {
         await foreach (var queuedEvent in queue.ReadAllAsync(stoppingToken))
         {
+            queue.MarkProcessing(queuedEvent.Id);
             Console.WriteLine($"[QUEUE] Dequeued {queuedEvent.Event.GetType().Name}");
 
             try
             {
                 await queuedEvent.Dispatch();
+                queue.MarkCompleted(queuedEvent.Id);
             }
             catch (Exception ex)
             {
+                queue.MarkFailed(queuedEvent.Id);
                 Console.WriteLine(
                     $"[QUEUE] Failed to process {queuedEvent.Event.GetType().Name}: {ex.Message}"
                 );
