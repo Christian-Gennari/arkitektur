@@ -30,12 +30,25 @@
         <section class="statistics-card" aria-labelledby="statistics-heading">
           <div class="statistics-heading">
             <p class="eyebrow" id="statistics-heading">ACTIVITY STATISTICS</p>
-            <span>All activity this session</span>
+            <span>Updated by event handlers</span>
           </div>
           <div class="statistics-grid">
             <div class="stat"><strong id="created-stat">0</strong><span>Created</span></div>
             <div class="stat"><strong id="completed-stat">0</strong><span>Completed</span></div>
             <div class="stat"><strong id="deleted-stat">0</strong><span>Deleted</span></div>
+          </div>
+        </section>
+
+        <section class="queue-card" aria-labelledby="queue-heading">
+          <div class="queue-heading">
+            <div>
+              <p class="eyebrow" id="queue-heading">EVENT QUEUE</p>
+              <span>Producer → queue → background consumer → handler</span>
+            </div>
+            <span class="queue-live"><i></i> Live</span>
+          </div>
+          <div class="queue-list" id="queue-list" aria-live="polite">
+            <div class="queue-empty">Create a task to publish a TodoCreated event.</div>
           </div>
         </section>
 
