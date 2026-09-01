@@ -1,10 +1,19 @@
-import { completeTodo, createTodo, deleteTodo, getStatistics, getTodos, uncompleteTodo } from "./api.js";
+import {
+  completeTodo,
+  createTodo,
+  deleteTodo,
+  getEventQueue,
+  getStatistics,
+  getTodos,
+  uncompleteTodo,
+} from "./api.js";
 
 let tasks = [];
 let currentFilter = "all";
 
 const taskList = document.querySelector("#task-list");
 const taskInput = document.querySelector("#task-title");
+const queueList = document.querySelector("#queue-list");
 
 function toUiTask(todo) {
   return {
@@ -25,19 +34,27 @@ async function loadTasks() {
   }
 }
 
-async function loadStatistics() {
+async function loadStatistics(silent = false) {
   try {
     const statistics = await getStatistics();
     document.querySelector("#created-stat").textContent = statistics.createdCount;
     document.querySelector("#completed-stat").textContent = statistics.completedCount;
     document.querySelector("#deleted-stat").textContent = statistics.deletedCount;
   } catch {
-    showToast("Could not load statistics");
+    if (!silent) showToast("Could not load statistics");
+  }
+}
+
+async function loadEventQueue(silent = false) {
+  try {
+    renderQueue(await getEventQueue());
+  } catch {
+    if (!silent) showToast("Could not load event queue");
   }
 }
 
 async function refresh() {
-  await Promise.all([loadTasks(), loadStatistics()]);
+  await Promise.all([loadTasks(), loadStatistics(), loadEventQueue()]);
 }
 
 function visibleTasks() {
@@ -65,6 +82,45 @@ function render() {
   const completed = tasks.filter((task) => task.completed).length;
   document.querySelector("#task-count").textContent = `${visible.length} ${visible.length === 1 ? "task" : "tasks"}`;
   document.querySelector("#progress-label").textContent = `${tasks.length - completed} open · ${completed} done`;
+}
+
+function renderQueue(events) {
+  if (!events.length) {
+    queueList.innerHTML = '<div class="queue-empty">Create a task to publish a TodoCreated event.</div>';
+    return;
+  }
+
+  queueList.innerHTML = events.map((event) => {
+    const status = event.status.toLowerCase();
+    const duration = formatDuration(event);
+    return `
+      <article class="queue-item">
+        <div class="queue-event">
+          <span class="queue-dot ${status}"></span>
+          <div>
+            <strong>${escapeHtml(event.eventType)}</strong>
+            <span>Event ${shortId(event.id)}</span>
+          </div>
+        </div>
+        <div class="queue-state">
+          <span class="queue-status ${status}">${escapeHtml(event.status)}</span>
+          <span class="queue-duration">${duration}</span>
+        </div>
+      </article>`;
+  }).join("");
+}
+
+function formatDuration(event) {
+  if (event.status === "Queued") return "waiting";
+  if (!event.startedAt) return "—";
+
+  const start = new Date(event.startedAt).getTime();
+  const end = event.completedAt ? new Date(event.completedAt).getTime() : Date.now();
+  return `${Math.max(0, (end - start) / 1000).toFixed(1)}s`;
+}
+
+function shortId(id) {
+  return String(id).slice(0, 8);
 }
 
 async function toggleTask(id) {
@@ -103,7 +159,7 @@ document.querySelector("#quick-add").addEventListener("submit", async (event) =>
     await createTodo(title);
     taskInput.value = "";
     await refresh();
-    showToast("Task added");
+    showToast("Task added — handler is processing in the background");
   } catch {
     showToast("Could not add task");
   }
@@ -154,3 +210,7 @@ function escapeHtml(value) {
 const currentDate = new Date();
 document.querySelector("#current-date").textContent = currentDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 refresh();
+setInterval(() => {
+  loadStatistics(true);
+  loadEventQueue(true);
+}, 400);
